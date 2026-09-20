@@ -1,0 +1,228 @@
+{
+  "pages": [
+    {
+      "path": "pages/kiosk/home/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "NAILOOK",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/kiosk/products/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "商品列表",
+        "backgroundColor": "#F2F3F5"
+      }
+    },
+    {
+      "path": "pages/kiosk/upload/scan-upload/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "扫码上传",
+        "disableScroll": true,
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/kiosk/upload/camera-capture/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "相机拍摄",
+        "disableScroll": true,
+        "backgroundColor": "#000000"
+      }
+    },
+    {
+      "path": "pages/kiosk/generate/keywords/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "选择关键词",
+        "disableScroll": true,
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/kiosk/generate/generating/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "匹配中",
+        "disableScroll": true,
+        "backgroundColor": "#F0F0F0"
+      }
+    },
+    {
+      "path": "pages/kiosk/generate/results/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "生成美甲",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/kiosk/generate/product-detail/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "美甲详情",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/kiosk/try-on/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "AI试戴美甲",
+        "backgroundColor": "#F7F7F7"
+      }
+    },
+    {
+      "path": "pages/kiosk/try-on/wait/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "生成中",
+        "disableScroll": true,
+        "backgroundColor": "#0F1010"
+      }
+    },
+    {
+      "path": "pages/kiosk/try-on/result/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "上手效果",
+        "backgroundColor": "#FFFFFF"
+      }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages/admin",
+      "name": "admin",
+      "pages": [
+        {
+          "path": "login/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "管理员登录",
+            "disableScroll": true,
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "home/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "机上管理",
+            "disableScroll": true,
+            "backgroundColor": "#F2F3F5"
+          }
+        },
+        {
+          "path": "banner/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "banner轮播图管理",
+            "backgroundColor": "#F2F3F5"
+          }
+        },
+        {
+          "path": "banner/library/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "官方banner图集",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "banner/upload/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "自定义上传banner",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "store/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "门店信息设置",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "version/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "版本信息",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "history/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "生成历史",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "history/detail/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "生成详情",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "product/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "商品管理",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "product/detail/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "商品信息详情",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "hand/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "手模库管理",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "hand/library/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "官方手模图库",
+            "backgroundColor": "#FFFFFF"
+          }
+        },
+        {
+          "path": "hand/detail/index",
+          "style": {
+            "navigationStyle": "custom",
+            "navigationBarTitleText": "手模详情",
+            "backgroundColor": "#FFFFFF"
+          }
+        }
+      ]
+    }
+  ],
+  "globalStyle": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "NAILOOK",
+    "navigationBarBackgroundColor": "#F0F0F0",
+    "backgroundColor": "#F0F0F0",
+    "backgroundColorTop": "#F0F0F0",
+    "backgroundColorBottom": "#FFFFFF"
+  }
+}

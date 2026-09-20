@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="480" height="480" viewBox="0 0 480 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 315">
+<circle id="Ellipse 37" cx="240" cy="240" r="240" fill="#F8F8F8"/>
+<g id="Group 305">
+<path id="Union" d="M231.984 138.919C235.987 133.695 243.859 133.695 247.861 138.919L299.764 206.667C304.805 213.246 300.114 222.748 291.826 222.748H283.221V269.795C283.221 278.632 276.057 285.795 267.221 285.795H212.626C203.789 285.795 196.626 278.632 196.626 269.795V222.748H188.019C179.732 222.748 175.041 213.246 180.081 206.667L231.984 138.919Z" fill="#333333"/>
+<line id="Line 2" x1="198.001" y1="312" x2="282.001" y2="312" stroke="#333333" stroke-width="8" stroke-linecap="round"/>
+<line id="Line 3" x1="212.001" y1="342" x2="268.001" y2="342" stroke="#333333" stroke-width="8" stroke-linecap="round"/>
+</g>
+</g>
+</svg>
