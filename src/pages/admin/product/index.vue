@@ -48,7 +48,7 @@
     </view>
 
     <view class="pd-list" :class="{ 'is-batch': batching }">
-      <view v-for="item in filtered" :key="item.id" class="pd-row">
+      <view v-for="item in filtered" :key="item.id" class="pd-row" @click="togglePick(item.id)">
         <image class="pd-row__thumb" :src="item.image" mode="aspectFill" />
         <view class="pd-row__body">
           <view class="pd-row__info">
@@ -86,8 +86,11 @@
         <text>取消</text>
       </view>
       <view class="pd-foot__solid" hover-class="none" @click="removePicked">
-        <text>下架</text>
+        <text>{{ statusTab == 'off' ? '上架' : '下架' }}</text>
       </view>
+	  <view class="pd-foot__delete" hover-class="none" @click="deletePicked">
+	    <text>删除</text>
+	  </view>
     </view>
 
     <view v-if="showFilter" class="pd-dim" hover-class="none" @click="showFilter = false" />
@@ -250,18 +253,6 @@ function rowActions(item: ProductItem): RowAct[] {
   ];
 }
 
-function confirmDelete(content: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    uni.showModal({
-      title: "删除商品",
-      content,
-      confirmText: "删除",
-      cancelText: "取消",
-      success: (res) => resolve(!!res.confirm),
-      fail: () => resolve(false),
-    });
-  });
-}
 
 async function onAction(item: ProductItem, act: RowAct["id"]) {
   selectProduct.value = item;
@@ -303,10 +294,18 @@ async function onAction(item: ProductItem, act: RowAct["id"]) {
     acting.value = false;
   }
 }
+// 下架处理，单个，批量
+function handleFetch() {
+	const ids = [...picked.value];
+	if(ids.length > 1) {
+		removeMultip()
+	} else {
+		removeSingle()
+	}
+}
 
-async function handleFetch() {
+const removeSingle = async() => {
 	const prevStatus = selectProduct?.value?.status;
-	console.log(prevStatus);
 	const next = prevStatus === "on" ? "down" : "up";
 	try {
 		await patchStoreCatalogProduct(selectProduct?.value.id, { status: next });
@@ -318,11 +317,35 @@ async function handleFetch() {
 		acting.value = false;
 		await loadProducts();
 	}
-	// uni.showToast({ title: next === "up" ? "已上架" : "已下架", icon: "none" });
 }
 
-// 删除
-const handleDelete = async() => {
+const removeMultip = async() => {
+	const ids = [...picked.value];
+	try {
+	  await Promise.all(ids.map((id) => patchStoreCatalogProduct(id, { status: statusTab.value == 'off' ? 'up' : 'down' })));
+	  (uni as any).$modal.hide();
+	  (uni as any).$toast.success(statusTab.value == 'off' ? '批量上架成功': "批量下架成功", undefined, 1000);
+	  cancelBatch();
+	  await loadProducts();
+	} catch (error) {
+	  (uni as any).$toast.error(statusTab.value == 'off' ? "批量上架失败" :"批量下架失败", undefined, 1000);
+	} finally {
+	  acting.value = false;
+	}
+	await loadProducts();
+}
+
+// 删除, 区分单个/批量
+const handleDelete = () => {
+	const ids = [...picked.value];
+	if(ids.length > 1) {
+		deleteMultip()
+	} else {
+		deleteSingle()
+	}
+}
+
+const deleteSingle = async() => {
 	try {
 		await unhangStoreCatalogProduct(selectProduct.value.id);
 		(uni as any).$modal.hide();
@@ -331,6 +354,22 @@ const handleDelete = async() => {
 		(uni as any).$toast.error("操作失败", undefined, 1000);
 	} finally {
 		acting.value = false;
+	}
+	await loadProducts();
+}
+
+const deleteMultip = async() => {
+	const ids = [...picked.value];
+	try {
+	  await Promise.all(ids.map((id) => unhangStoreCatalogProduct(id)));
+	  (uni as any).$modal.hide();
+	  (uni as any).$toast.success("删除成功", undefined, 1000);
+	  cancelBatch();
+	  await loadProducts();
+	} catch (error) {
+	  (uni as any).$toast.error("删除失败", undefined, 1000);
+	} finally {
+	  acting.value = false;
 	}
 	await loadProducts();
 }
@@ -355,7 +394,7 @@ function cancelBatch() {
   picked.value = new Set();
 }
 
-async function removePicked() {
+function removePicked() {
   const ids = [...picked.value];
   if (ids.length === 0) {
     uni.showToast({ title: "请先选择商品", icon: "none" });
@@ -364,21 +403,53 @@ async function removePicked() {
   if (acting.value) {
     return;
   }
-  const ok = await confirmDelete("确定删除已选商品？");
-  if (!ok) {
+   if (statusTab.value == 'off') {
+	   (uni as any).$modal.load("确认上架", "是否上架该商品?", "确认",  2, 200000);
+   } else {
+	   (uni as any).$modal.load("确认下架", "是否下架该商品?", "确认",  2, 200000);
+   }
+  // const ok = await confirmDelete("确定删除已选商品？");
+  // if (!ok) {
+  //   return;
+  // }
+  // acting.value = true;
+  // try {
+  //   await Promise.all(ids.map((id) => unhangStoreCatalogProduct(id)));
+  //   uni.showToast({ title: "已删除", icon: "none" });
+  //   cancelBatch();
+  //   await loadProducts();
+  // } catch (error) {
+  //   showScreenError(error, "删除失败");
+  // } finally {
+  //   acting.value = false;
+  // }
+}
+// 批量删除
+function deletePicked() {
+  const ids = [...picked.value];
+  if (ids.length === 0) {
+    uni.showToast({ title: "请先选择商品", icon: "none" });
     return;
   }
-  acting.value = true;
-  try {
-    await Promise.all(ids.map((id) => unhangStoreCatalogProduct(id)));
-    uni.showToast({ title: "已删除", icon: "none" });
-    cancelBatch();
-    await loadProducts();
-  } catch (error) {
-    showScreenError(error, "删除失败");
-  } finally {
-    acting.value = false;
+  if (acting.value) {
+    return;
   }
+  (uni as any).$modal.load("确认删除", "确认删除该内容？操作不可逆。", "删除",  0, 200000);
+  // const ok = await confirmDelete("确定删除已选商品？");
+  // if (!ok) {
+  //   return;
+  // }
+  // acting.value = true;
+  // try {
+  //   await Promise.all(ids.map((id) => unhangStoreCatalogProduct(id)));
+  //   uni.showToast({ title: "已删除", icon: "none" });
+  //   cancelBatch();
+  //   await loadProducts();
+  // } catch (error) {
+  //   showScreenError(error, "删除失败");
+  // } finally {
+  //   acting.value = false;
+  // }
 }
 
 function openFilter() {
@@ -413,6 +484,7 @@ function applyFilter() {
   applied.value = cloneProductFilter(draft.value);
   showFilter.value = false;
 }
+
 </script>
 
 <style>
@@ -706,6 +778,7 @@ page {
 
 .pd-foot__ghost,
 .pd-foot__solid,
+.pd-foot__delete,
 .pd-sheet__ok {
   height: calc(100 * var(--u));
   border-radius: calc(60 * var(--u));
@@ -723,10 +796,10 @@ page {
   box-sizing: border-box;
 }
 
-.pd-foot__solid {
-  flex: 1;
+.pd-foot__solid, .pd-foot__delete {
   background: #191919;
   color: #fff;
+  width: calc(240 * var(--u));
 }
 
 .pd-sheet__ok {

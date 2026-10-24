@@ -1,23 +1,27 @@
 import {
+  applyVerifiedDeviceContext,
   bootstrapDevice,
+  discardMismatchedDevice,
   fetchDeviceContext,
+  hasConfiguredDeviceCode,
   isDeviceUnauthorized,
   retryVerify,
 } from "@/lib/device-auth";
+import { clearStoreCache } from "@/data/store";
 import {
   clearDeviceContext,
   clearDeviceSession,
   getFreshDeviceContext,
   isAccessTokenFresh,
   loadDeviceCodeFromFile,
-  resolveDeviceCode,
-  saveDeviceContext,
 } from "@/lib/device-session";
 import { refreshDeviceSession, ScreenHttpError } from "@/lib/screen-http";
 
 export type KioskAuthState = "authorized" | "unauthorized" | "unavailable";
 
 let inFlight: Promise<KioskAuthState> | null = null;
+/** 本进程只在启动时重签一次。续票会把旧主体一直带下去。 */
+let deviceSessionReady = false;
 
 export async function ensureKioskAuthorized(): Promise<boolean> {
   return (await resolveKioskAuth()) === "authorized";
@@ -34,9 +38,22 @@ export async function resolveKioskAuth(): Promise<KioskAuthState> {
 
 async function doEnsure(): Promise<KioskAuthState> {
   await loadDeviceCodeFromFile();
-  if (!resolveDeviceCode()) {
+  discardMismatchedDevice();
+  if (!hasConfiguredDeviceCode()) {
     rejectLocalAuth();
     return "unauthorized";
+  }
+
+  if (!deviceSessionReady) {
+    const reset = await bootstrapWithRetry();
+    if (reset !== "authorized") {
+      return reset;
+    }
+    deviceSessionReady = true;
+    if (getFreshDeviceContext() && isAccessTokenFresh()) {
+      return "authorized";
+    }
+    return refreshContext();
   }
 
   const cached = getFreshDeviceContext();
@@ -82,7 +99,7 @@ async function bootstrapWithRetry(): Promise<KioskAuthState> {
 
 async function refreshContext(): Promise<KioskAuthState> {
   try {
-    saveDeviceContext(await retryVerify(() => fetchDeviceContext()));
+    applyVerifiedDeviceContext(await retryVerify(() => fetchDeviceContext()));
     return "authorized";
   } catch (error) {
     if (isDeviceUnauthorized(error)) {
@@ -104,7 +121,7 @@ async function recoverExpiredSession(): Promise<KioskAuthState> {
     if (!(await refreshDeviceSession())) {
       await retryVerify(() => bootstrapDevice());
     }
-    saveDeviceContext(await retryVerify(() => fetchDeviceContext()));
+    applyVerifiedDeviceContext(await retryVerify(() => fetchDeviceContext()));
     return "authorized";
   } catch (error) {
     if (isDeviceUnauthorized(error)) {
@@ -121,4 +138,5 @@ async function recoverExpiredSession(): Promise<KioskAuthState> {
 function rejectLocalAuth(): void {
   clearDeviceSession();
   clearDeviceContext();
+  clearStoreCache();
 }

@@ -1,0 +1,58 @@
+/**
+ * m-video-frame 插件接口定义。
+ * 不使用 FFmpeg：Android 基于 MediaMetadataRetriever，iOS 基于 AVAssetImageGenerator。
+ */
+
+/** 抽帧输出图片格式 */
+export type VideoFrameOutputFormat = 'jpg' | 'png'
+
+/** 抽帧参数 */
+export type ExtractVideoFrameOptions = {
+  /** 视频地址。支持本地绝对路径、file://、Android content://、http(s)://。 */
+  url: string
+  /** 抽帧时间，单位毫秒。优先级高于 timeSec。默认 0。 */
+  timeMs?: number | null
+  /** 抽帧时间，单位秒。timeMs 为空时生效。 */
+  timeSec?: number | null
+  /** 输出格式，默认 jpg。 */
+  format?: VideoFrameOutputFormat | null
+  /** JPG 压缩质量，1-100，默认 90。PNG 会忽略该参数。 */
+  quality?: number | null
+  /** 最大宽度。大于 0 时按比例缩放。默认 0 不限制。 */
+  maxWidth?: number | null
+  /** 最大高度。大于 0 时按比例缩放。默认 0 不限制。 */
+  maxHeight?: number | null
+  /** 自定义输出文件名，不需要带扩展名。为空时自动生成。 */
+  fileName?: string | null
+}
+
+/** 抽帧结果 */
+export type ExtractVideoFrameResult = {
+  /** 生成图片本地路径（file:// 前缀），可直接用于 image 展示；上传前可按业务需要去掉 file://。 */
+  path: string
+  /** 图片宽度，像素。 */
+  width: number
+  /** 图片高度，像素。 */
+  height: number
+  /** 实际输出格式。 */
+  format: string
+  /** 抽帧时间，毫秒。 */
+  timeMs: number
+  /** 输出文件大小，字节。 */
+  size: number
+}
+
+/** 错误码 */
+export type ExtractVideoFrameErrorCode = 9030001 | 9030002 | 9030003 | 9030004 | 9030005
+
+export interface ExtractVideoFrameFail extends IUniError {
+  errCode: ExtractVideoFrameErrorCode
+}
+
+export type ExtractVideoFrameErrorObject = {
+  errCode: ExtractVideoFrameErrorCode
+  errMsg?: string
+}
+
+/* 异步函数定义 */
+export type ExtractVideoFrame = (options: ExtractVideoFrameOptions) => Promise<ExtractVideoFrameResult>

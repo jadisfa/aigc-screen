@@ -2,6 +2,7 @@ import { INSPIRE_MODE_KEY, INSPIRE_QUERY_KEY, INSPIRE_TAGS_KEY } from "@/data/in
 import { sleep } from "@/lib/scan-session";
 import { fetchDispatch } from "@/lib/screen-api/dispatch";
 import {
+  abandonExperience,
   completeOutfitTag,
   completeTryOn,
   createExperience,
@@ -18,6 +19,8 @@ import { readOutfitUploadId } from "@/lib/upload-flow";
 
 export const EXPERIENCE_ID_KEY = "kiosk.experienceId";
 export const EXPERIENCE_SNAPSHOT_KEY = "kiosk.experienceSnapshot";
+const VISIT_EPOCH_KEY = "kiosk.visitEpoch";
+const EXPERIENCE_EPOCH_KEY = "kiosk.experienceEpoch";
 
 export type MatchProgress = (percent: number, etaSeconds?: number) => void;
 
@@ -27,6 +30,31 @@ export function readExperienceId() {
 
 export function writeExperienceId(id: string) {
   uni.setStorageSync(EXPERIENCE_ID_KEY, id);
+  let epoch = String(uni.getStorageSync(VISIT_EPOCH_KEY) || "");
+  if (!epoch) {
+    epoch = String(Date.now());
+    uni.setStorageSync(VISIT_EPOCH_KEY, epoch);
+  }
+  uni.setStorageSync(EXPERIENCE_EPOCH_KEY, epoch);
+}
+
+/** 回到首页即结束本趟。只放弃离开前的体验号，避免误关下一趟。 */
+export function beginKioskVisit() {
+  const previousId = readExperienceId();
+  uni.setStorageSync(VISIT_EPOCH_KEY, String(Date.now()));
+  uni.removeStorageSync(EXPERIENCE_ID_KEY);
+  uni.removeStorageSync(EXPERIENCE_SNAPSHOT_KEY);
+  uni.removeStorageSync(EXPERIENCE_EPOCH_KEY);
+  if (!previousId) {
+    return;
+  }
+  void abandonExperience(previousId).catch(() => undefined);
+}
+
+function experienceBelongsToCurrentVisit() {
+  const visitEpoch = String(uni.getStorageSync(VISIT_EPOCH_KEY) || "");
+  const experienceEpoch = String(uni.getStorageSync(EXPERIENCE_EPOCH_KEY) || "");
+  return Boolean(visitEpoch && experienceEpoch === visitEpoch && readExperienceId());
 }
 
 export function writeMatchedExperience(experience: ScreenExperience) {
@@ -114,6 +142,9 @@ export function matchingScene(): "outfit" | "keyword" {
 }
 
 export async function loadMatchedExperience(): Promise<ScreenExperience | null> {
+  if (!experienceBelongsToCurrentVisit()) {
+    return null;
+  }
   const snapshot = readMatchedExperienceSnapshot();
   const current = await fetchCurrentExperience().catch(() => null);
   if (current?.id) {
@@ -149,6 +180,7 @@ export async function runMatching(onProgress?: MatchProgress, signal?: { aborted
   }
 
   const outfitUploadId = readOutfitUploadId();
+  console.log(outfitUploadId, 183, 'experience-flows.ts')
   if (!outfitUploadId) {
     throw new Error("请先确认穿搭图");
   }
@@ -173,6 +205,26 @@ export async function runMatching(onProgress?: MatchProgress, signal?: { aborted
   return completed;
 }
 
+async function requireOpenExperienceId() {
+  if (experienceBelongsToCurrentVisit()) {
+    try {
+      const current = await fetchCurrentExperience();
+      if (current?.id) {
+        writeExperienceId(current.id);
+        return current.id;
+      }
+    } catch {
+      const stored = readExperienceId();
+      if (stored) {
+        return stored;
+      }
+    }
+  }
+  const created = await createExperience({ scene: "catalog" });
+  writeExperienceId(created.id);
+  return created.id;
+}
+
 export async function runTryOn(
   imageUrl: string,
   onProgress?: MatchProgress,
@@ -181,10 +233,7 @@ export async function runTryOn(
   if (!/^https?:\/\//i.test(imageUrl)) {
     throw new Error("请选择或扫码上传手模图");
   }
-  const experienceId = readExperienceId();
-  if (!experienceId) {
-    throw new Error("请先从穿搭或灵感开始本趟体验");
-  }
+  const experienceId = await requireOpenExperienceId();
   onProgress?.(8);
   const lookId = String(uni.getStorageSync(TRYON_LOOK_KEY) || "");
   const productId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lookId)
@@ -211,7 +260,7 @@ export async function runTryOn(
     stockKind: productId ? undefined : "custom_no_stock",
   });
   onProgress?.(100);
-  return generation;
+  return { ...generation, tryonTaskId: accepted.taskId };
 }
 
 async function waitDispatch(
@@ -289,11 +338,21 @@ function uniqueNames(names: Array<string | undefined | null>): string[] {
 function kioskFailureByCode(errorCode: string | undefined, errorMessage: string | undefined, fallback: string): string {
   const code = String(errorCode || "").trim().toUpperCase();
   if (
+    code === "SCHEDULER-QUOTA-429"
+    || code === "FUND_BALANCE_NOT_ENOUGH"
+    || code === "FUND_ACCOUNT_NOT_FOUND"
+  ) {
+    return "账户余额不足，请充值后重试";
+  }
+  if (
     code === "COMFYUI_NODE_UNAUTHORIZED"
     || code === "COMFYUI_API_ERROR"
     || code.startsWith("SCHEDULER-COMFYUI-")
   ) {
     return fallback;
+  }
+  if (errorMessage && (errorMessage.includes("余额不足") || errorMessage.includes("账户不存在"))) {
+    return "账户余额不足，请充值后重试";
   }
   return (errorMessage || "").trim() || fallback;
 }

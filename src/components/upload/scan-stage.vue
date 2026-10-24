@@ -7,7 +7,8 @@
       <image class="scan-qr__corner scan-qr__corner--bl" :src="ASSETS.cornerTl" mode="aspectFit" />
       <image class="scan-qr__corner scan-qr__corner--br" :src="ASSETS.cornerTr" mode="aspectFit" />
     </view>
-    <image v-else class="scan-stage__photo" :src="preview" mode="aspectFill" />
+    <image v-if="preview && mediaKind !== 'video'" class="scan-stage__photo" :src="preview" mode="aspectFill" />
+    <banner-shot v-else-if="preview" class="scan-stage__photo" kind="video" :src="preview" />
 
     <view v-if="!preview && status === 'scanned'" class="scan-status">
       <image class="scan-status__badge" :src="ASSETS.scanOk" mode="aspectFit" />
@@ -31,12 +32,14 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import BannerShot from "@/components/admin/banner-shot.vue";
 import type { ScanStatus } from "../../lib/upload-flow";
 
 const props = defineProps<{
   preview: string;
   status: ScanStatus;
   qrSrc?: string;
+  mediaKind?: "image" | "video";
 }>();
 
 const emit = defineEmits<{

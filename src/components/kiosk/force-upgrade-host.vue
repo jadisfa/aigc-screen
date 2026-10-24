@@ -4,10 +4,10 @@
       <view class="fu-modal__hero">
         <image class="fu-modal__art" src="/static/admin/version-latest.svg" mode="aspectFit" />
       </view>
-      <text class="fu-modal__title">必须升级当前版本</text>
-      <text class="fu-modal__hint">检测到重大缺陷修复，请立即升级或指定安装时间。</text>
+      <text class="fu-modal__title">{{ forceMode ? "必须升级当前版本" : "有新版本可升级" }}</text>
+      <text v-if="forceMode" class="fu-modal__hint">检测到重大缺陷修复，请立即升级或指定安装时间。</text>
       <text class="fu-modal__head">待更新版本{{ latestName }}</text>
-      <text class="fu-modal__line">安装包大小：{{ latestSize }}</text>
+      <text class="fu-modal__line apkSize">安装包大小：{{ latestSize }}</text>
       <text class="fu-modal__line">更新内容：</text>
       <text v-for="line in notes" :key="line" class="fu-modal__line">{{ line }}</text>
       <view v-if="pickingTime" class="fu-times">
@@ -25,8 +25,8 @@
         </view>
       </view>
       <view v-else class="fu-modal__acts">
-        <view class="fu-modal__later" hover-class="none" @click="pickingTime = true">
-          <text>指定时间升级</text>
+        <view class="fu-modal__later" hover-class="none" @click="onLater">
+          <text>{{ forceMode ? "指定时间升级" : "以后再说" }}</text>
         </view>
         <view class="fu-modal__now" hover-class="none" @click="upgradeNow">
           <text>立即升级</text>
@@ -47,17 +47,24 @@ import {
   hoursLater,
   commitLocalScreenVersion,
   openOtaPackage,
+  peekOtaCheck,
+  peekOtaSnapshot,
+  isForceScheduleWaiting,
   readForceSchedule,
   splitOtaNotes,
   subscribeOtaInspect,
+  subscribeOtaResult,
   tonightAt,
   writeForceSchedule,
   type OtaCheckResult,
 } from "@/lib/ota-upgrade";
+import { getAccessToken } from "@/lib/device-session";
 import type { ScreenOtaVersion } from "@/lib/screen-api/ota";
 
 const visible = ref(false);
+const forceMode = ref(true);
 const pickingTime = ref(false);
+let skippedOptionalNo: number | null = null;
 const latestName = ref("--");
 const latestSize = ref("--");
 const notes = ref<string[]>([]);
@@ -65,29 +72,41 @@ let latest: ScreenOtaVersion | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let unsubscribeInspect: (() => void) | null = null;
+let unsubscribeResult: (() => void) | null = null;
 
 onMounted(() => {
-  startTimers();
+  startScheduleTick();
+  startOtaPoll();
+  unsubscribeResult = subscribeOtaResult(applyResult);
   unsubscribeInspect = subscribeOtaInspect(() => {
     void inspect();
   });
-  void inspect();
 });
 
 onUnmounted(() => {
   unsubscribeInspect?.();
   unsubscribeInspect = null;
+  unsubscribeResult?.();
+  unsubscribeResult = null;
   stopTimers();
 });
 
-function startTimers() {
-  stopTimers();
-  pollTimer = setInterval(() => {
-    void inspect();
-  }, OTA_FORCE_CHECK_MS);
+function startScheduleTick() {
+  if (tickTimer) {
+    return;
+  }
   tickTimer = setInterval(() => {
-    void inspect();
+    tickSchedule();
   }, OTA_SCHEDULE_TICK_MS);
+}
+
+function startOtaPoll() {
+  if (pollTimer) {
+    return;
+  }
+  pollTimer = setInterval(() => {
+    void checkOtaUpdate(false, true);
+  }, OTA_FORCE_CHECK_MS);
 }
 
 function stopTimers() {
@@ -102,16 +121,41 @@ function stopTimers() {
 }
 
 async function inspect() {
+  if (!getAccessToken()) {
+    return;
+  }
+  const fresh = peekOtaCheck();
   const result = await checkOtaUpdate(false);
+  if (result === fresh) {
+    applyResult(result);
+  }
+}
+
+function tickSchedule() {
+  const result = peekOtaSnapshot();
+  if (!result) {
+    return;
+  }
+  applyResult(result);
+}
+
+function applyResult(result: OtaCheckResult) {
   applyLatest(result);
-  if (!result.hasUpdate || result.kind !== "force" || !result.latest) {
+  forceMode.value = result.kind === "force";
+  if (!result.hasUpdate || !result.latest) {
     visible.value = false;
     pickingTime.value = false;
     return;
   }
+  if (!forceMode.value) {
+    pickingTime.value = false;
+    const versionNo = toDialogVersionNo(result.latest.versionNo);
+    visible.value = skippedOptionalNo !== versionNo;
+    return;
+  }
   const schedule = readForceSchedule();
-  const versionNo = result.latest.versionNo ?? 0;
-  if (schedule && schedule.versionNo === versionNo && Date.now() < schedule.at) {
+  const versionNo = toDialogVersionNo(result.latest.versionNo);
+  if (isForceScheduleWaiting(versionNo)) {
     visible.value = false;
     pickingTime.value = false;
     return;
@@ -129,6 +173,19 @@ function applyLatest(result: OtaCheckResult) {
   latestName.value = result.latest?.versionName || "--";
   latestSize.value = formatOtaSize(result.latest?.fileSize);
   notes.value = splitOtaNotes(result.latest?.changelog);
+}
+
+function onLater() {
+  if (!forceMode.value) {
+    skippedOptionalNo = toDialogVersionNo(latest?.versionNo);
+    visible.value = false;
+    return;
+  }
+  pickingTime.value = true;
+}
+
+function toDialogVersionNo(versionNo?: number | null) {
+  return versionNo ?? 0;
 }
 
 function upgradeNow() {
@@ -169,7 +226,7 @@ function tomorrowMorning() {
 .fu-mask {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 100;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
@@ -216,7 +273,7 @@ function tomorrowMorning() {
 .fu-modal__head {
   display: block;
   margin-top: calc(32 * var(--u));
-  font-size: calc(32 * var(--u));
+  font-size: calc(37 * var(--u));
   font-weight: 700;
   color: #333;
 }
@@ -228,6 +285,10 @@ function tomorrowMorning() {
   font-weight: 500;
   line-height: 1.5;
   color: #777;
+}
+
+.fu-modal__line.apkSize {
+	margin-top: calc(24 * var(--u));
 }
 
 .fu-modal__acts,

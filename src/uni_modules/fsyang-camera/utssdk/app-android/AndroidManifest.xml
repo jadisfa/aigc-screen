@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 相机：拍照/录像必需 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 定位：仅当 saveLocation=true 写入照片 GPS 时需要 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- 相机非强制，无相机设备也能装 -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+
+</manifest>

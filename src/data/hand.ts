@@ -4,6 +4,7 @@ export type HandItem = {
   image: string;
   official: boolean;
   catalogId?: string;
+  sortNo?: number | null;
 };
 
 export type OfficialHand = {
@@ -92,6 +93,7 @@ export function toHandItem(
     displayName?: string;
     assetUrl?: string;
     previewUrl?: string;
+    sortNo?: number | null;
   },
   official: boolean,
 ): HandItem {
@@ -102,7 +104,18 @@ export function toHandItem(
     image: row.previewUrl || row.assetUrl || "/static/admin/hand-grid.png",
     official,
     catalogId: official ? row.materialId || configId : undefined,
+    sortNo: row.sortNo,
   };
+}
+
+export function toSortedHandItems(list: {
+  official?: Parameters<typeof toHandItem>[0][];
+  custom?: Parameters<typeof toHandItem>[0][];
+}): HandItem[] {
+  return [
+    ...(list.official || []).map((row) => toHandItem(row, true)),
+    ...(list.custom || []).map((row) => toHandItem(row, false)),
+  ].sort((a, b) => (a.sortNo ?? Number.MAX_SAFE_INTEGER) - (b.sortNo ?? Number.MAX_SAFE_INTEGER));
 }
 
 export function toOfficialHand(row: {

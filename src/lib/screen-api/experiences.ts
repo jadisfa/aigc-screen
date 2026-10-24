@@ -29,6 +29,8 @@ export type ScreenExperience = {
   analyzeTaskId?: string;
   tryonTaskId?: string;
   failCount?: number;
+  /** 用户上传的穿搭原图；关键词场景为空。 */
+  sourceImageUrl?: string;
 };
 
 export type ScreenDispatchAccepted = {
@@ -40,7 +42,7 @@ export type ScreenDispatchAccepted = {
 };
 
 export function createExperience(body: {
-  scene: "outfit" | "keyword";
+  scene: "outfit" | "keyword" | "catalog";
   outfitUploadId?: string;
   keyword?: string;
 }) {
@@ -57,6 +59,13 @@ export async function fetchCurrentExperience() {
 
 export function fetchExperience(id: string) {
   return screenRequest<ScreenExperience>(`/api/screen/experiences/${encodeURIComponent(id)}`);
+}
+
+export function abandonExperience(id: string) {
+  return screenRequest<ScreenExperience>(`/api/screen/experiences/${encodeURIComponent(id)}/abandon`, {
+    method: "POST",
+    data: {},
+  });
 }
 
 export function dispatchOutfitTag(experienceId: string) {
@@ -98,4 +107,10 @@ export function completeTryOn(
     method: "POST",
     data: body,
   });
+}
+
+export function shareTryOnResult(taskId: string) {
+  return screenRequest<{ taskId: string; h5Url: string }>(
+    `/api/screen/try-on-results/${encodeURIComponent(taskId)}/share`,
+  );
 }

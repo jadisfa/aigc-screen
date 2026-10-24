@@ -109,6 +109,33 @@ export function recommendedHomeProducts(items: ProductItem[]): HomeProduct[] {
   return items.filter((item) => item.recommended).map(toHomeProduct);
 }
 
+const HOME_RAIL_CHUNK = 3;
+const HOME_RAIL_FALLBACK_LIMIT = 9;
+
+export function chunkItems<T>(items: T[], size: number): T[][] {
+  if (!Array.isArray(items) || size <= 0) {
+    return [];
+  }
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
+
+/** 首页推荐轨：优先推荐款，没有推荐时用在售款，避免接口有数据但轨道空白。 */
+export function homeRailProducts(items: ProductItem[]): HomeProduct[] {
+  const recommended = recommendedHomeProducts(items);
+  if (recommended.length) {
+    return recommended;
+  }
+  return items.slice(0, HOME_RAIL_FALLBACK_LIMIT).map(toHomeProduct);
+}
+
+export function homeRailRows(items: ProductItem[]): HomeProduct[][] {
+  return chunkItems(homeRailProducts(items), HOME_RAIL_CHUNK);
+}
+
 export function findListedProduct(id?: string) {
   if (!id) {
     return undefined;

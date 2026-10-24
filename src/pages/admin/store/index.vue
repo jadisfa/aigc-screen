@@ -47,7 +47,8 @@
 import { reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
-import type { StoreInfo } from "@/data/store";
+import { cacheStore, peekStore, type StoreInfo } from "@/data/store";
+import { rememberDeviceStore } from "@/lib/device-session";
 import { ADMIN_PAGES, goBackOr } from "@/lib/kiosk-routes";
 import { fetchScreenStore, patchScreenStore } from "@/lib/screen-api/me";
 import { showScreenError } from "@/lib/screen-http";
@@ -68,16 +69,26 @@ onShow(() => {
 });
 
 async function loadStore() {
+  applyStore(peekStore());
   try {
     const store = await fetchScreenStore();
-    info.name = store.name || "";
-    info.address = store.address || "";
-    draft.name = info.name;
-    draft.address = info.address;
+    applyStore({ name: store.name || "", address: store.address || "" });
+    cacheStore({ name: info.name, address: info.address });
+    rememberDeviceStore({ name: info.name, address: info.address });
     editing.value = false;
   } catch (error) {
     showScreenError(error, "门店信息加载失败");
   }
+}
+
+function applyStore(store: StoreInfo | null) {
+  if (!store) {
+    return;
+  }
+  info.name = store.name;
+  info.address = store.address;
+  draft.name = info.name;
+  draft.address = info.address;
 }
 
 function onBack() {
@@ -103,6 +114,8 @@ async function onAction() {
     const saved = await patchScreenStore({ name: draft.name.trim(), address: draft.address.trim() });
     info.name = saved.name || draft.name.trim();
     info.address = saved.address || draft.address.trim();
+    cacheStore({ name: info.name, address: info.address });
+    rememberDeviceStore({ name: info.name, address: info.address });
     editing.value = false;
     uni.showToast({ title: "已保存", icon: "none" });
   } catch (error) {

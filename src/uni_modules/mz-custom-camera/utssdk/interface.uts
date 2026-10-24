@@ -1,0 +1,69 @@
+/**
+ * MZ Custom Camera - 对外类型声明
+ * Android: CameraX | iOS: AVFoundation
+ */
+
+export type CameraFacing = 'front' | 'back'
+export type CameraFlashMode = 'off' | 'on' | 'auto'
+
+export type CameraErrorCode =
+	| 9101001 // 用户拒绝权限 / 无权限
+	| 9101002 // 参数错误
+	| 9101003 // 设备不支持 / 无可用摄像头
+	| 9101004 // 预览绑定失败
+	| 9101005 // 拍照失败
+	| 9101010 // 未知错误
+
+export interface CameraError extends IUniError {
+	errCode : CameraErrorCode
+}
+
+export type CameraCaptureResult = {
+	/** 本地图片绝对路径（不含 file:// 前缀，业务侧按需拼接） */
+	path : string
+}
+
+export type CameraReadyResult = {
+	facing : CameraFacing
+}
+
+export type CheckCameraPermissionSuccess = {
+	granted : boolean
+}
+
+export type CheckCameraPermissionOptions = {
+	/** 若未授权，是否主动弹系统授权框，默认 true */
+	request ?: boolean | null
+	success ?: ((res : CheckCameraPermissionSuccess) => void) | null
+	fail ?: ((err : CameraError) => void) | null
+	complete ?: ((res : any) => void) | null
+}
+
+/** 注意：iOS UTS 编译为 Swift 闭包时不允许默认参数，调用方需显式传 options（可为 null） */
+export type CheckCameraPermission = (options : CheckCameraPermissionOptions | null) => void
+
+export type IsCameraAvailableResult = {
+	available : boolean
+	hasFront : boolean
+	hasBack : boolean
+}
+
+export type IsCameraAvailable = () => IsCameraAvailableResult
+
+/**
+ * takeCameraPhoto 可选回调（推荐 Vue3：用 success 拿 path，不依赖 $refs / 可作 @capture 备份）
+ * iOS UTS 无默认参数，调用方须显式传 options 或 null
+ */
+export type TakeCameraPhotoOptions = {
+	success ?: ((res : CameraCaptureResult) => void) | null
+	fail ?: ((err : CameraError) => void) | null
+	complete ?: ((res : any) => void) | null
+}
+
+/**
+ * 对当前已启动预览的相机实例拍照（不依赖 Vue $refs，推荐 Vue3 nvue 使用）
+ * @param options 可为 null；有 success 时直接回传 path（不依赖组件 $emit）
+ * @returns 是否成功发起拍照（无活跃预览时为 false）
+ */
+export type TakeCameraPhoto = (options : TakeCameraPhotoOptions | null) => boolean
+

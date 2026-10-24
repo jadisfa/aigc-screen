@@ -2,12 +2,16 @@ import { getApiBaseUrl } from "@/lib/api-base";
 import { ADMIN_PAGES } from "@/lib/kiosk-routes";
 import {
   clearDeviceSession,
+  currentSessionEpoch,
+  enqueueSessionWork,
   getAccessToken,
   getRefreshToken,
   getSessionKind,
   hasAdminSession,
   isAccessTokenFresh,
+  isRenewingSession,
   saveDeviceSession,
+  whenSessionIdle,
   type DeviceTokenView,
 } from "@/lib/device-session";
 
@@ -41,11 +45,13 @@ type Envelope = {
   trace?: { traceId?: string };
 };
 
-let refreshInFlight: Promise<boolean> | null = null;
+/** 已经确认无效的 refresh，同一张票不要再打一次。 */
+let rejectedRefreshToken = "";
 
 export async function screenRequest<T>(path: string, options: ScreenRequestOptions = {}): Promise<T> {
   const withAuth = options.withAuth ?? true;
   const skipRefresh = options.skipRefresh ?? false;
+  console.log(options.requireAdmin, !hasAdminSession())
   if (options.requireAdmin && !hasAdminSession()) {
     clearDeviceSession();
     uni.reLaunch({ url: ADMIN_PAGES.login });
@@ -57,8 +63,30 @@ export async function screenRequest<T>(path: string, options: ScreenRequestOptio
       return failUnauthenticated(options.requireAdmin === true);
     }
   }
+  return loadScreen<T>(withTimeParam(path, Date.now()), options, withAuth, skipRefresh);
+}
+
+async function loadScreen<T>(
+  path: string,
+  options: ScreenRequestOptions,
+  withAuth: boolean,
+  skipRefresh: boolean,
+): Promise<T> {
+  await whenSessionIdle();
+  const tokenBefore = getAccessToken();
+  const epochBefore = currentSessionEpoch();
   const first = await send(path, options, withAuth);
-  if (first.unauthorized && withAuth && !skipRefresh) {
+  if (first.unauthorized && withAuth && !skipRefresh && !isRenewingSession()) {
+    await whenSessionIdle();
+    if (getAccessToken() && (getAccessToken() !== tokenBefore || currentSessionEpoch() !== epochBefore)) {
+      const retried = await send(path, options, true);
+      if (!retried.unauthorized) {
+        if (retried.error) {
+          throw retried.error;
+        }
+        return retried.data as T;
+      }
+    }
     const recovered = await recoverAccessToken(options.requireAdmin === true);
     if (recovered) {
       const retry = await send(path, options, true);
@@ -78,7 +106,13 @@ export async function screenRequest<T>(path: string, options: ScreenRequestOptio
   return first.data as T;
 }
 
+function withTimeParam(path: string, t: number) {
+  return `${path}${path.includes("?") ? "&" : "?"}t=${t}`;
+}
+
 async function ensureAccessToken(requireAdmin: boolean): Promise<void> {
+  const { alignSessionToConfiguredDevice } = await import("@/lib/device-auth");
+  await alignSessionToConfiguredDevice();
   if (isAccessTokenFresh()) {
     return;
   }
@@ -164,33 +198,35 @@ async function send(
   return { data: envelope.data, unauthorized: false };
 }
 
-export async function refreshDeviceSession(): Promise<boolean> {
+export function refreshDeviceSession(): Promise<boolean> {
+  const seen = currentSessionEpoch();
   const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    return false;
-  }
-  if (!refreshInFlight) {
-    refreshInFlight = (async () => {
-      try {
-        const view = await screenRequest<DeviceTokenView>("/api/screen/device/auth/token/refresh", {
-          method: "POST",
-          data: { refreshToken },
-          withAuth: false,
-          skipRefresh: true,
-        });
-        if (!view?.accessToken) {
-          return false;
-        }
-        saveDeviceSession(view, getSessionKind() || "kiosk");
-        return true;
-      } catch {
+  return enqueueSessionWork(async () => {
+    if (currentSessionEpoch() !== seen && isAccessTokenFresh()) {
+      return true;
+    }
+    if (!refreshToken || refreshToken === rejectedRefreshToken) {
+      return false;
+    }
+    try {
+      const view = await screenRequest<DeviceTokenView>("/api/screen/device/auth/token/refresh", {
+        method: "POST",
+        data: { refreshToken },
+        withAuth: false,
+        skipRefresh: true,
+      });
+      if (!view?.accessToken) {
+        rejectedRefreshToken = refreshToken;
         return false;
-      } finally {
-        refreshInFlight = null;
       }
-    })();
-  }
-  return refreshInFlight;
+      rejectedRefreshToken = "";
+      saveDeviceSession(view, getSessionKind() || "kiosk");
+      return true;
+    } catch {
+      rejectedRefreshToken = refreshToken;
+      return false;
+    }
+  });
 }
 
 function onAuthLost(): void {

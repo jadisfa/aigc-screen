@@ -10,6 +10,9 @@
       <view class="wait__fill" :style="{ width: progress + '%' }" />
     </view>
     <text class="wait__pct">{{ progress }}%</text>
+	
+	
+	<KioskGenerate v-if="showFailed" @back="onBack" @reGenerate="handleRegenerate" />
   </view>
 </template>
 
@@ -17,10 +20,11 @@
 import { onUnmounted, ref } from "vue";
 import { onLoad, onUnload } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
-import { TRYON_WAIT_LINES, readTryOnImageUrl, writeTryOnResult } from "@/data/try-on";
+import { TRYON_WAIT_LINES, readTryOnImageUrl, writeTryOnImageUrl, writeTryOnResult, writeTryOnTaskId } from "@/data/try-on";
 import { runTryOn } from "@/lib/experience-flow";
 import { KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
 import { showScreenError } from "@/lib/screen-http";
+import KioskGenerate from "@/components/kiosk/kiosk-generate.vue";
 
 const ASSETS = {
   back: "/static/results/back-white.svg",
@@ -35,6 +39,7 @@ const nextUrl = ref<string>(KIOSK_PAGES.tryOnResult);
 const signal = { aborted: false };
 let leaveTimer: ReturnType<typeof setTimeout> | null = null;
 let lineTimer: ReturnType<typeof setInterval> | null = null;
+const showFailed = ref(false);
 
 onLoad((query?: Record<string, string>) => {
   if (query?.next) {
@@ -69,7 +74,11 @@ async function start() {
     if (signal.aborted) {
       return;
     }
+    if (generation.sourceImageUrl) {
+      writeTryOnImageUrl(generation.sourceImageUrl);
+    }
     writeTryOnResult(generation.resultImageUrl || "");
+    writeTryOnTaskId(generation.tryonTaskId || "");
     progress.value = 100;
     leaveTimer = setTimeout(() => {
       uni.redirectTo({ url: nextUrl.value });
@@ -78,8 +87,9 @@ async function start() {
     if (signal.aborted) {
       return;
     }
-    showScreenError(error, "试戴暂时不可用，请稍后重试");
-    goBackOr(KIOSK_PAGES.tryOn);
+	showFailed.value = true;
+    // showScreenError(error, "试戴暂时不可用，请稍后重试");
+    // goBackOr(KIOSK_PAGES.tryOn);
   }
 }
 
@@ -99,6 +109,12 @@ function onBack() {
   stop();
   goBackOr(KIOSK_PAGES.tryOn);
 }
+
+const handleRegenerate = () => {
+	showFailed.value = false;
+	start()
+}
+
 </script>
 
 <style>

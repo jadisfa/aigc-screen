@@ -8,7 +8,7 @@ NAILOOK 电子屏客户端，Vue 3 + uni-app。设计稿为 **1080 竖屏**，�
 | --- | --- |
 | `src/pages/kiosk/home/` | C 端首页 |
 | `src/pages/kiosk/upload/` | 扫码 / 拍照（穿搭、Banner、手模共用） |
-| `src/pages/kiosk/generate/` | 穿搭生成、文生美甲、款式详情 |
+| `src/pages/kiosk/generate/` | 穿搭配货、商品匹配、款式详情 |
 | `src/pages/kiosk/try-on/` | AI 试戴 |
 | `src/pages/admin/login/` | 管理员登录 |
 | `src/pages/admin/home/` | 机上管理首页（分包） |

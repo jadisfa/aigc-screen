@@ -1,0 +1,100 @@
+<!--
+  Vue3 nvue 快门写法（可复制到业务页）
+  不要依赖 this.$refs.camera.takePhoto() —— Vue3 下常无效。
+  使用 takeCameraPhoto({ success }) 直接拿 path；也可同时监听 @capture。
+-->
+<template>
+	<div class="page">
+		<mz-custom-camera
+			ref="camera"
+			class="preview"
+			device-position="back"
+			flash-mode="off"
+			:auto-preview="true"
+			@ready="onReady"
+			@error="onError"
+			@capture="onCapture"
+		></mz-custom-camera>
+		<div class="shutter" @click="onShutter"></div>
+	</div>
+</template>
+
+<script>
+	import { takeCameraPhoto } from '@/uni_modules/mz-custom-camera'
+
+	export default {
+		data() {
+			return {
+				ready: false,
+				finishing: false
+			}
+		},
+		methods: {
+			onReady() {
+				this.ready = true
+			},
+			onError(e) {
+				const d = (e && e.detail) || e || {}
+				const payload = d.detail || d
+				uni.showToast({ title: (payload && payload.message) || '相机错误', icon: 'none' })
+			},
+			// 可选备份：若 $emit 正常，也会走到这里
+			onCapture(e) {
+				const d = (e && e.detail) || e || {}
+				const path = d.path || (d.detail && d.detail.path) || ''
+				if (path) this.finishWithPath(path)
+			},
+			onShutter() {
+				if (!this.ready || this.finishing) return
+				// Vue3 推荐：API + success，不依赖 $refs / 不依赖 $emit
+				const ok = takeCameraPhoto({
+					success: (res) => {
+						if (res && res.path) this.finishWithPath(res.path)
+					},
+					fail: (err) => {
+						uni.showToast({
+							title: (err && err.errMsg) || '拍照失败',
+							icon: 'none'
+						})
+					}
+				})
+				if (!ok) {
+					uni.showToast({ title: '相机未就绪', icon: 'none' })
+				}
+			},
+			finishWithPath(path) {
+				if (this.finishing) return
+				this.finishing = true
+				// 业务自行处理 path（跳转 / 上传等）
+				console.log('[vue3-demo] capture path', path)
+				this.finishing = false
+			}
+		}
+	}
+</script>
+
+<style>
+	.page {
+		flex: 1;
+		background-color: #000000;
+	}
+	.preview {
+		position: absolute;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
+	}
+	.shutter {
+		position: absolute;
+		left: 311rpx;
+		bottom: 80rpx;
+		width: 128rpx;
+		height: 128rpx;
+		border-radius: 64rpx;
+		background-color: #ff6a00;
+		border-width: 8rpx;
+		border-style: solid;
+		border-color: #ffffff;
+	}
+</style>

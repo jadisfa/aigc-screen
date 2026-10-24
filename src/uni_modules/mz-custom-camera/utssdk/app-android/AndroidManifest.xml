@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	package="uts.sdk.modules.mzCustomCamera">
+
+	<uses-permission android:name="android.permission.CAMERA" />
+	<uses-feature
+		android:name="android.hardware.camera"
+		android:required="false" />
+	<uses-feature
+		android:name="android.hardware.camera.autofocus"
+		android:required="false" />
+
+	<!--
+	  CameraX 1.4 会传递依赖 androidx.work，其 RescheduleReceiver 监听 BOOT_COMPLETED。
+	  自定义相机不需要开机自启；合规检测会判定为「未告知用户的自启动」。
+	-->
+	<application>
+		<receiver
+			android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
+			tools:node="remove" />
+	</application>
+</manifest>

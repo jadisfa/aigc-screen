@@ -22,7 +22,7 @@ export function fetchScreenAccount() {
 }
 
 export function fetchScreenStore() {
-  return screenRequest<ScreenStore>("/api/screen/me/store", admin);
+  return screenRequest<ScreenStore>("/api/screen/me/store");
 }
 
 export function patchScreenStore(data: { name: string; address: string }) {

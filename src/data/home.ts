@@ -8,8 +8,6 @@ export type HomeProduct = {
 
 export type HomeSlideKind = "outfit" | "inspire";
 
-export const DEFAULT_STORE_ADDRESS = "杭州市上城区科城街368号滨乔商务中心";
-
 export const DEFAULT_PRODUCTS: HomeProduct[] = [
   {
     id: "1",
@@ -53,6 +51,7 @@ export const INSPIRE_STEPS = [
   { label: "AI试甲", icon: "/static/icons/step-tryon.svg" },
 ];
 
+/** 后台未配置 Banner 时的系统默认首页轮播。 */
 export const HOME_SLIDES: { kind: HomeSlideKind }[] = [
   { kind: "outfit" },
   { kind: "inspire" },

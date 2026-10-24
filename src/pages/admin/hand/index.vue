@@ -83,10 +83,12 @@
       <view class="hd-foot__ghost" hover-class="none" @click="cancelEdit">
         <text>取消</text>
       </view>
-      <view class="hd-foot__solid" hover-class="none" @click="removePicked">
+      <view :class="`hd-foot__solid ${picked.size > 0 ? '': 'disabled'}`" hover-class="none" @click="removePicked">
         <text>删除</text>
       </view>
     </view>
+	<KiostModal @delete="handleDelete" />
+	<KioskToast />
   </view>
 </template>
 
@@ -94,11 +96,18 @@
 import { computed, ref, nextTick } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
-import { cacheHands, HAND_LIMIT, toHandItem, type HandItem } from "@/data/hand";
+import { cacheHands, HAND_LIMIT, toSortedHandItems, type HandItem } from "@/data/hand";
 import { ADMIN_PAGES, goBackOr } from "@/lib/kiosk-routes";
-import { deleteCustomHandModel, fetchHandModels, unbindOfficialHandModel } from "@/lib/screen-api/hand-models";
+import {
+  deleteCustomHandModel,
+  fetchHandModels,
+  sortHandModels,
+  unbindOfficialHandModel,
+} from "@/lib/screen-api/hand-models";
 import { showScreenError } from "@/lib/screen-http";
 import { discardUploadDraft, scanUploadUrl } from "@/lib/upload-flow";
+import KiostModal from "@/components/kiosk/kiosk-modal.vue";
+import KioskToast from "@/components/kiosk/kiosk-toast.vue";
 
 const ASSETS = {
   back: "/static/scan/back.svg",
@@ -146,6 +155,7 @@ const LONG_PRESS = 300;
 let touchStartX = 0;
 let touchStartY = 0;
 let moved = false;
+let orderDirty = false;
 
 // 缓存 .hd-grid 的视口位置
 let areaRect = { left: 0, top: 0 };
@@ -329,9 +339,12 @@ function onTouchEnd() {
     setTimeout(() => {
       if (activeIndex.value === idx) {
         activeIndex.value = -1;
-		console.log(items, '拖拽后的items')
       }
     }, 180);
+    if (orderDirty) {
+      orderDirty = false;
+      void persistOrder();
+    }
   }
 }
 
@@ -340,6 +353,20 @@ function swapItems(from: number, to: number) {
   const [movedItem] = list.splice(from, 1);
   list.splice(to, 0, movedItem);
   items.value = list;
+  orderDirty = true;
+}
+
+async function persistOrder() {
+  const configIds = items.value.map((row) => row.id).filter(Boolean);
+  if (!configIds.length) {
+    return;
+  }
+  try {
+    await sortHandModels(configIds);
+  } catch (error) {
+    showScreenError(error, "排序保存失败");
+    await loadHands();
+  }
 }
 
 // ====================== 生命周期 ======================
@@ -350,10 +377,7 @@ onShow(() => {
 async function loadHands() {
   try {
     const list = await fetchHandModels();
-    const mapped = [
-      ...(list.official || []).map((row) => toHandItem(row, true)),
-      ...(list.custom || []).map((row) => toHandItem(row, false)),
-    ];
+    const mapped = toSortedHandItems(list);
     cacheHands(mapped);
     items.value = mapped;
 
@@ -383,7 +407,10 @@ function goUpload() {
     return;
   }
   discardUploadDraft("hand-admin");
-  uni.navigateTo({ url: scanUploadUrl("hand-admin") });
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1];
+  const fullPath = currentPage.$page?.fullPath;
+  uni.navigateTo({ url: `${scanUploadUrl("hand-admin")}&fullPath=${fullPath}` });
 }
 
 // ====================== 编辑 / 选中 ======================
@@ -413,19 +440,27 @@ function cancelEdit() {
   picked.value = new Set();
 }
 
-async function removePicked() {
-  const selected = items.value.filter((row) => picked.value.has(row.id));
-  try {
-    await Promise.all(
-      selected.map((row) =>
-        row.official ? unbindOfficialHandModel(row.id) : deleteCustomHandModel(row.id),
-      ),
-    );
-    await loadHands();
-  } catch (error) {
-    showScreenError(error, "删除失败");
-  }
-  cancelEdit();
+function removePicked() {
+  if (picked.value.size == 0) return;
+  (uni as any).$modal.load("确认删除", "确认删除该内容？操作不可逆。", "删除",  0, 200000);
+}
+
+const handleDelete = async() => {
+	const selected = items.value.filter((row) => picked.value.has(row.id));
+	try {
+	  await Promise.all(
+	    selected.map((row) =>
+	      row.official ? unbindOfficialHandModel(row.id) : deleteCustomHandModel(row.id),
+	    ),
+	  ).finally(() => {
+		  (uni as any).$modal.hide();
+		  (uni as any).$toast.success("删除成功", undefined, 1000);
+	  });
+	  await loadHands();
+	} catch (error) {
+	  (uni as any).$toast.error(error.message || "删除失败", undefined, 1000);
+	}
+	cancelEdit();
 }
 </script>
 
@@ -664,6 +699,7 @@ page {
   flex-direction: row;
   gap: calc(24 * var(--u));
   box-sizing: border-box;
+  z-index:99;
 }
 
 .hd-foot__ghost,
@@ -687,5 +723,12 @@ page {
 .hd-foot__solid {
   background: #191919;
   color: #fff;
+}
+
+.hd-foot__solid.disabled {
+	background: #ddd;
+}
+.hd-foot__solid.disabled:hover {
+	cursor: not-allowed;
 }
 </style>

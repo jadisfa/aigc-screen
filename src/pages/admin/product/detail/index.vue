@@ -101,7 +101,9 @@ async function loadProduct() {
 }
 
 function onBack() {
-  goBackOr(ADMIN_PAGES.product);
+  // goBackOr(ADMIN_PAGES.product);
+  const pages = getCurrentPages();
+  uni.navigateBack({ delta: 1 })
 }
 
 function toggleShelf() {

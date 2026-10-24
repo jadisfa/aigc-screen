@@ -19,8 +19,7 @@
 import { computed, onUnmounted, ref } from "vue";
 import { onLoad, onUnload } from "@dcloudio/uni-app";
 import { matchingScene, runMatching } from "@/lib/experience-flow";
-import { KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
-import { showScreenError } from "@/lib/screen-http";
+import { KIOSK_PAGES } from "@/lib/kiosk-routes";
 import KioskGenerate from "@/components/kiosk/kiosk-generate.vue";
 import KioskToast from "@/components/kiosk/kiosk-toast.vue";
 
@@ -35,7 +34,8 @@ const lead = ref(
 );
 const progress = ref(0);
 const nextUrl = ref<string>(KIOSK_PAGES.results);
-const signal = { aborted: false };
+let signal = { aborted: false };
+let runId = 0;
 let leaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 const statusText = computed(() => (progress.value < 100 ? "智能匹配中，请稍等……" : "匹配完成"));
@@ -44,6 +44,9 @@ const showFailed = ref(false);
 onLoad((query?: Record<string, string>) => {
   if (query?.next) {
     nextUrl.value = decodeURIComponent(query.next);
+  }
+  if (query?.next && query?.from) {
+    nextUrl.value = `${decodeURIComponent(query.next)}?from=${query?.from}`;
   }
   start();
 });
@@ -57,51 +60,79 @@ onUnmounted(() => {
 });
 
 async function start() {
+  const previous = signal;
+  previous.aborted = true;
+  const current = { aborted: false };
+  signal = current;
+  const mine = ++runId;
+  showFailed.value = false;
+  progress.value = 0;
+  clearLeaveTimer();
+  console.log('开始执行生成', current, )
   try {
     await runMatching((percent) => {
-      if (!signal.aborted) {
-        progress.value = Math.max(progress.value, percent);
+      if (current.aborted || mine !== runId) {
+        return;
       }
-    }, signal);
-    if (signal.aborted) {
+      progress.value = Math.max(progress.value, percent);
+    }, current);
+    if (current.aborted || mine !== runId) {
       return;
     }
     progress.value = 100;
     leaveTimer = setTimeout(() => {
+      if (current.aborted || mine !== runId) {
+        return;
+      }
       uni.redirectTo({ url: nextUrl.value });
     }, 400);
   } catch (error) {
-	if (error.message.includes('未绑定') || error.message) {
-		showFailed.value = true;
-	} else {
-		(uni as any).$toast.error(error.message, undefined, 1000);
-	}
-    if (signal.aborted) {
+	  console.log(error, error.message)
+    if (current.aborted || mine !== runId) {
       return;
     }
-    // showScreenError(error, "穿搭识别暂时不可用，请稍后重试");
-    // goBackOr(KIOSK_PAGES.home);
+    const message = error instanceof Error ? error.message.trim() : "";
+    if (message.includes("未绑定")) {
+      showFailed.value = true;
+      return;
+    }
+	showFailed.value = true;
+    (uni as any).$toast.error(message || "穿搭识别暂时不可用，请稍后重试", undefined, 1000);
   }
 }
 
 function stop() {
   signal.aborted = true;
-  if (leaveTimer) {
-    clearTimeout(leaveTimer);
-    leaveTimer = null;
-  }
-}
-const handleRegenerate = () => {
-	showFailed.value = false;
-	start()
+  runId += 1;
+  clearLeaveTimer();
 }
 
-const handleBack = () => {
-	showFailed.value = false;
-	const pages = getCurrentPages();
-	uni.navigateBack({
-		delta: 1
-	});
+function clearLeaveTimer() {
+  if (!leaveTimer) {
+    return;
+  }
+  clearTimeout(leaveTimer);
+  leaveTimer = null;
+}
+
+function handleRegenerate() {
+  showFailed.value = false;
+  void start();
+}
+
+function handleBack() {
+  showFailed.value = false;
+  stop();
+  if (getCurrentPages().length > 1) {
+    uni.navigateBack({
+      delta: 1,
+      fail: () => {
+        uni.reLaunch({ url: KIOSK_PAGES.home });
+      },
+    });
+    return;
+  }
+  uni.reLaunch({ url: KIOSK_PAGES.home });
 }
 </script>
 

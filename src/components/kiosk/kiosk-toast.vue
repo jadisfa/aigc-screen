@@ -25,7 +25,6 @@ const config = reactive({
 let timer: any = null;
 
 function show(options: {  title?: string; icon?: string; duration?: number }) {
-	console.log(options.icon)
   config.icon = options.icon || "";
   config.title = options.title || "";
   config.duration = options.duration ?? 2000;
@@ -65,6 +64,7 @@ defineExpose({ show, hide });
 
 <style>
 .kiosk-toast {
+  --u: calc(min(100vw, 1080px) / 1080);
   position: fixed;
   left: 0;
   top: 0;
@@ -87,22 +87,26 @@ defineExpose({ show, hide });
 
 .kiosk-toast__box {
   position: relative;
-  padding: calc(24 * var(--u));
-  background: rgba(0, 0, 0, 0.75);
-  border-radius: calc(24 * var(--u));
+  padding: calc(24 * var(--u)) calc(40 * var(--u));
+  background: #191919;
+  border-radius: calc(60 * var(--u));
   display: flex;
   flex-direction: row;
-  gap: 16rpx;
+  align-items: center;
+  gap: calc(16 * var(--u));
 }
 
 .kiosk-toast__icon {
-  width: calc(50 * var(--u));
-  height: calc(50 * var(--u));
+  width: calc(40 * var(--u));
+  height: calc(40 * var(--u));
+  flex-shrink: 0;
 }
 
 .kiosk-toast__text {
   font-size: calc(32 * var(--u));
+  font-weight: 500;
+  line-height: 1.2;
   color: #fff;
-  text-align: center;
+  white-space: nowrap;
 }
 </style>

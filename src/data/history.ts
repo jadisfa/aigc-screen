@@ -10,6 +10,7 @@ export type HistoryItem = {
   tags: string[];
   thumb: string;
   outfit: string;
+  source: string;
   looks: string[];
   points: number;
 };
@@ -33,6 +34,7 @@ export function emptyHistory(id = ""): HistoryItem {
     tags: [],
     thumb: "",
     outfit: "",
+    source: "",
     looks: [],
     points: 0,
   };
@@ -42,7 +44,7 @@ export function toHistoryItem(row: ScreenGeneration): HistoryItem {
   const kind: HistoryKind = row.scene === "keyword" ? "text" : "outfit";
   const result = row.resultImageUrl || "";
   const tags = [
-    kind === "text" ? "文生美甲" : "美甲穿搭",
+    kind === "text" ? "商品匹配" : "美甲穿搭",
     "AI试戴",
     row.stockKind === "custom_no_stock" ? "定制款" : row.stockKind ? "推荐款" : "",
   ].filter((tag): tag is string => Boolean(tag));
@@ -55,6 +57,7 @@ export function toHistoryItem(row: ScreenGeneration): HistoryItem {
     tags,
     thumb: result || row.product?.coverImageUrl || "",
     outfit: row.outfitImageUrl || "",
+    source: row.sourceImageUrl || "",
     looks: result ? [result] : [],
     points: Number.isFinite(points) ? points : 0,
   };

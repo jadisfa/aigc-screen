@@ -8,6 +8,10 @@
       <text>穿搭图</text>
       <image class="hd-row__shot" :src="item.outfit" mode="aspectFill" />
     </view>
+    <view v-if="item.source" class="hd-row">
+      <text>原图</text>
+      <image class="hd-row__shot" :src="item.source" mode="aspectFill" />
+    </view>
     <view class="hd-row">
       <text>生成状态</text>
       <view class="hd-row__tags">

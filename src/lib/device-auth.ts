@@ -1,4 +1,11 @@
+import { clearStoreCache, storedStoreDeviceCode, syncStoreFromDeviceContext } from "@/data/store";
 import {
+  clearDeviceContext,
+  clearDeviceSession,
+  currentSessionEpoch,
+  enqueueSessionWork,
+  getDeviceSession,
+  isAccessTokenFresh,
   loadDeviceCodeFromFile,
   resolveDeviceCode,
   saveDeviceContext,
@@ -7,7 +14,7 @@ import {
   type DeviceTokenView,
 } from "@/lib/device-session";
 import { ScreenHttpError, screenRequest } from "@/lib/screen-http";
-import deviceConfig from '@/device.json';
+import deviceConfig from "@/static/device.json";
 
 export const DEVICE_UNAUTHORIZED_MESSAGE = "设备未授权，请联系设备厂商";
 
@@ -47,7 +54,11 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function loginDevice(password: string): Promise<DeviceTokenView> {
+export function loginDevice(password: string): Promise<DeviceTokenView> {
+  return enqueueSessionWork(() => loginDeviceNow(password));
+}
+
+async function loginDeviceNow(password: string): Promise<DeviceTokenView> {
   const isDev = process.env.NODE_ENV === 'development';
   if (!isDev) await loadDeviceCodeFromFile();
   const deviceCode = !isDev ? resolveDeviceCode() : deviceConfig.deviceCode;
@@ -62,20 +73,38 @@ export async function loginDevice(password: string): Promise<DeviceTokenView> {
   if (!view?.accessToken) {
     throw new ScreenHttpError(0, "登录失败");
   }
+  assertIssuedDevice(deviceCode, view);
   saveDeviceSession(view, "admin");
   try {
-    saveDeviceContext(await retryVerify(() => fetchDeviceContext()));
-  } catch {
-    // 登录已成功；设备上下文供后续页展示，失败不挡进入后台
+    await acceptDeviceContext();
+  } catch (error) {
+    if (isDeviceUnauthorized(error)) {
+      clearVerifiedDevice();
+      throw error;
+    }
   }
   return view;
 }
 
-export async function bootstrapDevice(): Promise<DeviceTokenView> {
-  await loadDeviceCodeFromFile();
-  const deviceCode = resolveDeviceCode();
+export function bootstrapDevice(): Promise<DeviceTokenView> {
+  const seen = currentSessionEpoch();
+  return enqueueSessionWork(async () => {
+    const current = getDeviceSession();
+    if (current && currentSessionEpoch() !== seen && isAccessTokenFresh()) {
+      return current;
+    }
+    return bootstrapDeviceNow();
+  });
+}
+
+async function bootstrapDeviceNow(): Promise<DeviceTokenView> {
+  // const deviceCode = await configuredDeviceCode();
+  const isDev = process.env.NODE_ENV === 'development';
+    if (!isDev) await loadDeviceCodeFromFile();
+    const deviceCode = 'DEVICE-Y60REEBC';
+    // const deviceCode = !isDev ? resolveDeviceCode() : deviceConfig.deviceCode;
   if (!deviceCode) {
-    throw new ScreenHttpError(0, DEVICE_UNAUTHORIZED_MESSAGE, "SCREEN_DEVICE_UNAUTHORIZED");
+    throw unauthorized();
   }
   const view = await screenRequest<DeviceTokenView>("/api/screen/device/auth/bootstrap", {
     method: "POST",
@@ -83,15 +112,113 @@ export async function bootstrapDevice(): Promise<DeviceTokenView> {
     withAuth: false,
   });
   if (!view?.accessToken) {
-    throw new ScreenHttpError(0, DEVICE_UNAUTHORIZED_MESSAGE, "SCREEN_DEVICE_UNAUTHORIZED");
+    throw unauthorized();
   }
+  assertIssuedDevice(deviceCode, view);
   saveDeviceSession(view, "kiosk");
   try {
-    saveDeviceContext(await retryVerify(() => fetchDeviceContext()));
-  } catch {
-    // 开通成功即可进 C 端
+    await acceptDeviceContext();
+  } catch (error) {
+    if (isDeviceUnauthorized(error)) {
+      clearVerifiedDevice();
+      throw error;
+    }
+    clearStoreCache();
   }
   return view;
+}
+
+export async function alignSessionToConfiguredDevice(): Promise<void> {
+  if (process.env.NODE_ENV !== "development") {
+    await loadDeviceCodeFromFile();
+  }
+  discardMismatchedDevice();
+}
+
+export function hasConfiguredDeviceCode(): boolean {
+  return Boolean(syncConfiguredDeviceCode());
+}
+
+export function discardMismatchedDevice(): void {
+  const expected = syncConfiguredDeviceCode();
+  const sessionCode = getDeviceSession()?.deviceCode?.trim() || "";
+  if (expected && sessionCode && sessionCode !== expected) {
+    clearVerifiedDevice();
+    return;
+  }
+  const cachedCode = storedStoreDeviceCode();
+  if (cachedCode == null) {
+    return;
+  }
+  const owner = expected || sessionCode;
+  if (!cachedCode || (owner && cachedCode !== owner)) {
+    clearStoreCache();
+  }
+}
+
+export function applyVerifiedDeviceContext(view: DeviceContextView): void {
+  assertDeviceContext(view);
+  saveDeviceContext(view);
+  syncStoreFromDeviceContext(view);
+}
+
+async function configuredDeviceCode(): Promise<string> {
+  if (process.env.NODE_ENV !== "development") {
+    await loadDeviceCodeFromFile();
+  }
+  return syncConfiguredDeviceCode();
+}
+
+function syncConfiguredDeviceCode(): string {
+  const raw = process.env.NODE_ENV === "development" ? deviceConfig.deviceCode : resolveDeviceCode();
+  return (raw || "").trim();
+}
+
+function assertIssuedDevice(requestedCode: string, view: DeviceTokenView): void {
+  const deviceCode = view.deviceCode?.trim() || "";
+  const deviceId = view.deviceId?.trim() || "";
+  const storeId = view.storeId?.trim() || "";
+  if (deviceCode !== requestedCode || !deviceId || !storeId) {
+    throw unauthorized();
+  }
+}
+
+function assertDeviceContext(view: DeviceContextView): void {
+  const session = getDeviceSession();
+  const expectedCode = session?.deviceCode?.trim() || "";
+  const actualCode = view.deviceCode?.trim() || "";
+  if (!expectedCode || actualCode !== expectedCode) {
+    throw unauthorized();
+  }
+  if (session?.deviceId && view.deviceId && session.deviceId !== view.deviceId) {
+    throw unauthorized();
+  }
+  if (session?.storeId && view.storeId && session.storeId !== view.storeId) {
+    throw unauthorized();
+  }
+  if (view.boundStoreId && view.storeId && view.boundStoreId !== view.storeId) {
+    throw unauthorized();
+  }
+  if (session?.storeId && view.boundStoreId && session.storeId !== view.boundStoreId) {
+    throw unauthorized();
+  }
+  if (session?.merchantId && view.merchantId && session.merchantId !== view.merchantId) {
+    throw unauthorized();
+  }
+}
+
+async function acceptDeviceContext(): Promise<void> {
+  applyVerifiedDeviceContext(await retryVerify(() => fetchDeviceContext()));
+}
+
+function clearVerifiedDevice(): void {
+  clearDeviceSession();
+  clearDeviceContext();
+  clearStoreCache();
+}
+
+function unauthorized(): ScreenHttpError {
+  return new ScreenHttpError(0, DEVICE_UNAUTHORIZED_MESSAGE, "SCREEN_DEVICE_UNAUTHORIZED");
 }
 
 export async function fetchDeviceContext(): Promise<DeviceContextView> {

@@ -1,0 +1,21 @@
+{
+	"minSdkVersion": "21",
+	"dependencies": [
+		"androidx.camera:camera-core:1.4.2",
+		"androidx.camera:camera-camera2:1.4.2",
+		"androidx.camera:camera-lifecycle:1.4.2",
+		"androidx.camera:camera-view:1.4.2",
+		"androidx.lifecycle:lifecycle-runtime:2.6.2",
+		"androidx.core:core-ktx:1.12.0",
+		"androidx.appcompat:appcompat:1.6.1",
+		"com.google.guava:guava:31.1-android"
+	],
+	"project": {
+		"repositories": [
+			"google()",
+			"mavenCentral()",
+			"maven { url 'https://maven.aliyun.com/repository/google' }",
+			"maven { url 'https://maven.aliyun.com/repository/public' }"
+		]
+	}
+}

@@ -1,0 +1,508 @@
+<template>
+  <view class="camera-page">
+	  <!-- 有图片地址 -->
+	<view class="camera-result" v-if="photoUrl != ''">
+		<image :src="cameraIcon.resultBg" class="overlay-bg" mode="scaleToFill" />
+		<image :src="cameraIcon.close" class="overlay-back" mode="aspectFit" @click="reTackPhoto" />
+		<view class="result-img-body">
+			<image :src="photoUrl" mode="scaleToFill" class="camera-result-img" />
+		</view>
+		<view class="result-bottom">
+			<view class="result-btns">
+				<view class="capture-btn-body" @click="reTackPhoto">
+					<view class="capture-btn">
+						<image :src="cameraIcon.closeBack" class="result-btn-icon close" mode="aspectFit" />
+					</view>
+					<text class="capture-dec">重拍</text>
+				</view>
+				<view class="capture-btn-body vector" @click="cameraConfirm">
+					<view class="capture-btn">
+						<image :src="cameraIcon.vector" class="result-btn-icon" mode="aspectFit" />
+					</view>
+					<text class="capture-dec">确定</text>
+				</view>
+			</view>
+		</view>
+	</view>
+    <view class="camera-tackphoto" v-else >
+		<!-- 相机预览组件 -->
+		<!-- <mz-custom-camera ref="cameraRef" style="flex: 1;width: 750rpx; height: 1000rpx;" :auto-preview="true" @ready="onCameraReady"
+		@error="onCameraError"></mz-custom-camera> -->
+		  <fsyang-camera
+			ref="cameraRef"
+			style="position:absolute;left:0;top:0;right:0;bottom:0;"
+			cameraPosition="back"
+			:photoWidth="1080"
+			:crop="cropData"
+			:cropBoxMask="false"
+			:cropBoxRadius="73"
+			cropBoxColor="#dfdfdf"
+			@ready="onCameraReady"
+			@captured="onCapture"
+			@error="onCameraError"
+		  />
+		  <!-- 自定义 UI 层（倒计时数字和按钮） -->
+		  <view class="ui-overlay">
+			<image :src="cameraIcon.bgImage" class="overlay-bg" mode="scaleToFill"  />
+			<view class="overlay-top">
+				<image :src="cameraIcon.close" class="overlay-back" mode="aspectFit" @click="handleReturn" />
+				<view class="overlay-top-info"><text class="overlay-top-title">请拍摄全身/半身穿搭，确保衣物清晰</text></view>
+			</view>
+			<view class="overlay-bottom">
+				<view class="capture-btn" @click="startCountdown">
+					<image v-if="!isClick" :src="cameraIcon.url" class="camera-icon" mode="aspectFit" />
+					<text v-else class="countdown-text">{{ countdown }}</text>
+				</view>
+				<text class="camera-subtitle">点击拍摄，5 秒倒计时自动拍摄</text>
+			</view> 
+		</view>
+	</view>
+	
+  </view>
+</template>
+
+<script setup>
+import { ref, watch, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+
+// #ifdef APP-PLUS || APP-ANDROID || APP-IOS
+import { takeCameraPhoto, checkCameraPermission } from "@/uni_modules/mz-custom-camera";
+// #endif
+import { scanTransport } from '../../lib/common';
+import { publishLocalCapture } from '@/lib/local-capture-lite.js';
+import { goBackOr } from "@/lib/kiosk-routes";
+import { parseUploadIntent, UPLOAD_FLOWS, writePreview } from "@/lib/upload-flow";
+
+
+const intent = ref("outfit");
+const flow = computed(() => UPLOAD_FLOWS[intent.value]);
+const fullPath = ref('');
+const preview = ref("");
+// 相机组件引用
+const cameraRef = ref(null)
+const cameraIcon = {
+	url: '/static/camera/camera.png',
+	vector: '/static/images/vector.png',
+	close: '/static/images/closeW.png',
+	closeBack: '/static/images/closeB.png',
+	bgImage: '/static/images/camerabg.png',
+	resultBg: '/static/images/camera-resultbg.png'
+}
+
+const cropData = JSON.stringify({
+  x: 0.074,      // 取景框左边距比例
+  y: 0.188,      // 取景框顶边距比例
+  w: 0.851,  // 取景框宽度比例
+  h: 0.48  // 取景框高度比例
+})
+
+
+const isClick = ref(false); // 是否拍摄
+const photoUrl = ref('')
+
+// 倒计时状态
+const countdown = ref(0)
+let timer = null
+
+// 开始倒计时并拍照
+const startCountdown = () => {
+  if (countdown.value > 0) return // 防止重复点击
+  isClick.value = true;
+  countdown.value = 5
+  timer = setInterval(() => {
+    countdown.value--
+    if (countdown.value === 0) {
+	  isClick.value = false;
+      clearInterval(timer)
+      timer = null
+      takePhoto()
+    }
+  }, 1000)
+}
+
+const cameraReady = ref(false)
+const onCameraReady = () => {
+  cameraReady.value = true
+  // console.log('相机预览已就绪')
+}
+const onCameraError = (err) => {
+  console.error('相机出错：', err)
+}
+
+const handleReturn = () => {
+	// console.log('拍照点击返回')
+	uni.navigateBack({
+		delta:1
+	})
+}
+
+// 执行拍照
+// 2. 直接调用导入的方法，不要再通过 ref 调用
+const takePhoto = () => {
+	if (!cameraReady.value) {
+	    console.warn('相机尚未就绪，请稍候')
+	    return
+	  }
+  // takeCameraPhoto({
+  //   success: (res) => {
+	 //  const realPath = plus.io.convertLocalFileSystemURL(res.path)
+	 //  console.log('图片路径：',realPath)
+	 //  photoUrl.value = realPath;
+  //   },
+  //   fail: (err) => {
+  //     console.error('拍照失败：', err)
+  //   }
+  // })
+  
+  cameraRef.value.takePhoto();
+}
+
+const onCapture = (e) => {
+  // const d = e.detail || e  // nvue 中事件参数结构可能不同
+  // const realPath = plus.io.convertLocalFileSystemURL(d.path)
+  const d = JSON.parse(e.detail || e)
+  photoUrl.value = d.path;
+  console.log('图片路径：', e.detail, d.path)
+}
+
+// 申请相机权限
+const requestCameraPermission = () => {
+  // checkCameraPermission({
+  //   request: true, // 表示如果未授权，弹出系统弹窗
+  //   success: (res) => {
+  //     if (res.granted) {
+  //       console.log('相机权限已授予')
+  //       // 权限获取成功后，可以手动开始预览（如果 auto-preview 没生效）
+  //       setTimeout(() => {
+		// 	console.log(cameraRef.value, 143)
+		//   if (cameraRef.value) {
+		// 	cameraRef.value.startPreview()
+		//   }
+		// }, 200)
+  //     } else {
+  //       console.warn('用户拒绝了相机权限')
+  //       // 权限被拒绝，可以引导用户手动开启
+  //     }
+  //   },
+  //   fail: (err) => {
+  //     console.error('申请权限失败：', err.errCode, err.errMsg)
+  //   }
+  // })
+  
+  if (cameraRef.value) {
+      cameraRef.value.requestPermission('camera')
+    }
+}
+
+// 重拍
+const reTackPhoto = () => {
+	photoUrl.value = ''
+}
+
+// 确定, 穿搭/灵感确定后直接生成、试戴要回到手模页面
+const cameraConfirm = () => {
+	if (intent.value == 'outfit' || intent.value == 'inspire') {
+	handleOutUpload()
+	} else {
+		handleOtherUpload()
+	}
+}
+
+// 穿搭上传, hand-admin,hand-model 需要返回图片地址
+const handleOutUpload = async () => {
+  // console.log('1. 进入 handleOutUpload');
+  // console.log('2. intent =', intent.value);
+  // console.log('3. photoUrl =', photoUrl.value);
+
+  // console.log('4. flow.value =', flow.value);          // 先看 flow 本身
+  // console.log('5. typeof publishLocalCapture =', typeof publishLocalCapture);
+  uni.showLoading({
+  	title: '上传图片中,请稍后....'
+  })
+  try {
+    const published = await publishLocalCapture(intent.value, photoUrl.value);
+    if (published.assetUrl) {
+		writePreview(intent.value, published.assetUrl)
+		uni.hideLoading()
+		uni.navigateTo({ url: flow.value.nextAfterConfirm })
+	}
+  } catch (e) {
+	  uni.hideLoading();
+	  uni.showToast({
+	  	title: '上传失败',
+	  	icon: 'error',
+	  	duration: 1000
+	  })
+    // console.error('7. publishLocalCapture 抛错 msg =', e && e.message ? e.message : String(e));
+    //   console.error('7. 完整对象 =', JSON.stringify(e, Object.getOwnPropertyNames(e)));
+  }
+};
+
+const handleOtherUpload = async() => {
+	uni.showLoading({
+		title: '上传图片中,请稍后....'
+	})
+	try {
+	    const published = await publishLocalCapture(intent.value, photoUrl.value);
+	    if (published.assetUrl) {
+	      uni.hideLoading()
+	      // 通过事件回传图片地址
+		  writePreview('hand-model', published.assetUrl)
+	      uni.$emit('camera-captured', {
+	        intent: intent.value,
+	        assetUrl: published.assetUrl,
+	        // assetUrl: published.assetUrl,
+	        path: photoUrl.value
+	      })
+	      setTimeout(() => {
+			  // 返回上一页
+			  uni.reLaunch({
+			  	url: fullPath.value
+			  })
+		  }, 100)
+	    }
+	  } catch (e) {
+	    uni.hideLoading();
+		uni.showToast({
+			title: '上传失败',
+			icon: 'error',
+			duration: 1000
+		})
+	    console.error('上传失败：', e.cause, e.name, e.message)
+	  }
+}
+
+
+
+onLoad((query) => {
+    intent.value = parseUploadIntent(query);
+	fullPath.value = query?.fullPath;
+	requestCameraPermission()
+})
+</script>
+
+<style>
+/* nvue 支持有限的 CSS，必须使用 flex 布局 */
+.camera-page {
+  flex: 1;
+  background-color: #000;
+  position: relative;
+}
+.camera-tackphoto, .camera-result {
+	flex: 1;
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.camera-result {
+	background: #fff;
+	z-index: 9999999;
+}
+.ui-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  align-items: center;
+  z-index: 9999;
+  pointer-events: none;
+}
+.overlay-bg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+.overlay-top {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	padding: 60rpx 0 ;
+	height: 300rpx;
+	justify-content: center;
+	z-index: 99999;
+}
+.overlay-back {
+	width: 60rpx;
+	height: 60rpx;
+	margin-left: 40rpx;
+	top: 60rpx;
+	position: absolute;
+	justify-content: flex-start;
+}
+.overlay-top-info {
+	position: absolute;
+	left: 0;
+	top: 180rpx;
+	right: 0;
+	align-items: center;
+}
+.overlay-top-title {
+	position: relative;
+	color: #fff;
+	justify-content: center;
+	z-index: 9999;
+}
+.overlay-middle {
+	position: absolute;
+	top: 400rpx;
+	left: 0;
+	right: 0;
+	bottom: 328rpx;
+	padding: 80rpx 120rpx;
+	flex: 1;
+}
+.overlay-start {
+	width: 130rpx;
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, .5);
+}
+.overlay-end {
+	width: 130rpx;
+	position: absolute;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, .5);
+}
+.overlay-center {
+	position: absolute;
+	left: 130rpx;
+	right: 130rpx;
+	top: 0;
+	bottom: 0;
+	z-index: 9999;
+}
+.overlay-center-top {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 800rpx;
+	background: rgba(0, 0, 0, .5);
+}
+
+.overlay-center-bottom {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	top: 640rpx;
+	background: rgba(0, 0, 0, .5);
+}
+.overlay-bottom {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 60rpx;
+	padding-bottom: 40rpx;
+	padding-top: 100rpx;
+	justify-content: center;
+	align-items: center;
+}
+.overlay-center-main {
+	position: absolute;
+	left:0;
+	bottom: 160rpx;
+	right: 0;
+	top: 120rpx;
+}
+.camera-bgimg {
+	width: 100%;
+	height: 100%;
+}
+
+.camera-border {
+	position: absolute;
+	width: 80rpx;
+	height: 80rpx;
+}
+.countdown-text {
+  font-size: 80rpx;
+  font-weight: bold;
+}
+.capture-btn-body {
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+.capture-btn-body.vector {
+	margin-left: 60rpx;
+}
+.capture-btn {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 70rpx;
+  background-color: #fff;
+  justify-content: center;
+  align-items: center;
+}
+.camera-icon {
+	width: 60rpx;
+	height: 60rpx;
+}
+.camera-subtitle {
+	margin-top: 40rpx;
+	z-index: 9000;
+	color: #fff;
+}
+.result-bottom {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 60rpx;
+	height: 250rpx;
+	justify-content: space-between;
+}
+.result-btns {
+	align-items: center;
+	justify-content: center;
+	flex-direction: row;
+}
+.result-btn-icon {
+	width: 60rpx;
+	height: 60rpx;
+}
+.result-btn-icon.close {
+	width: 50rpx;
+	height: 50rpx;
+}
+.capture-dec {
+	color: #fff;
+	z-index: 99999;
+	margin-top: 20rpx;
+}
+.result-img-body {
+	position: absolute;
+	left: 55.55rpx;
+	right: 55.55rpx;
+	top: 240.7rpx;
+	height: 616rpx;
+	bottom: 0;
+	overflow: hidden;
+	/* border-style: dashed;
+	border-width: 1rpx;
+	border-color: #f90;
+	border-radius: 70rpx; */
+}
+.camera-result-img {
+	border-radius: 66rpx;
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+}
+.absolute {
+	
+}
+</style>

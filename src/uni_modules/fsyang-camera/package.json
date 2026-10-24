@@ -1,0 +1,102 @@
+{
+  "id": "fsyang-camera",
+  "displayName": "【全新】自定义相机 界面可改 拍照录像 缩放 水印 成像自适应 任意比例取景 双端支持",
+  "version": "1.0.9",
+  "description": "原生相机组件，Android+iOS双端。预览自适应、所见即所得；拍照可自定义宽度、按比例裁剪、EXIF/GPS、实时水印、无声抓拍；曝光调节 对焦锁焦 双指缩放、录像。",
+  "keywords": [
+    "自定义相机",
+    "相机",
+    "拍照",
+    "录像",
+    "水印"
+],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^4.71",
+    "uni-app": "^4.71",
+    "uni-app-x": "^4.71"
+  },
+  "dcloudext": {
+    "type": "component-uts",
+    "sale": {
+      "regular": {
+        "price": "99.00"
+      },
+      "sourcecode": {
+        "price": "2000.00"
+      }
+    },
+    "contact": {
+      "qq": ""
+    },
+    "declaration": {
+      "ads": "无",
+      "data": "插件本身不采集不上传任何数据；照片/视频仅存本机，GPS 仅在 saveLocation=true 时写入图片 EXIF",
+      "permissions": "相机(拍照录像必需)、定位(可选,仅写入照片GPS时)；麦克风仅录像收声时由宿主应用按需自行添加"
+    },
+    "darkmode": "x",
+    "i18n": "x",
+    "widescreen": "x",
+    "npmurl": ""
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "x",
+        "aliyun": "x",
+        "alipay": "x"
+      },
+      "client": {
+        "uni-app": {
+          "vue": {
+            "vue2": "√",
+            "vue3": "√"
+          },
+          "app": {
+            "vue": "x",
+            "nvue": "√",
+            "android": "√",
+            "ios": "√",
+            "harmony": "-"
+          },
+          "web": {
+            "safari": "x",
+            "chrome": "x"
+          },
+          "mp": {
+            "weixin": "x",
+            "alipay": "x",
+            "toutiao": "x",
+            "baidu": "x",
+            "kuaishou": "x",
+            "jd": "x",
+            "harmony": "x",
+            "qq": "x",
+            "lark": "x",
+            "xhs": "-"
+          },
+          "quickapp": {
+            "huawei": "x",
+            "union": "x"
+          }
+        },
+        "uni-app-x": {
+          "app": {
+            "android": "x",
+            "ios": "x",
+            "harmony": "-"
+          },
+          "web": {
+            "safari": "x",
+            "chrome": "x"
+          },
+          "mp": {
+            "weixin": "x"
+          }
+        }
+      }
+    }
+  }
+}

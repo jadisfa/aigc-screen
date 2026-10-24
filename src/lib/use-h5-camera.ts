@@ -67,8 +67,14 @@ export function useH5Camera(hostSelector: string) {
     });
   }
 
+  let session = 0;
+
   async function start() {
+    const ticket = ++session;
     const host = await waitForHost();
+    if (ticket !== session) {
+      return;
+    }
     if (!host || typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       liveFallback.value = true;
       failed.value = true;
@@ -79,14 +85,26 @@ export function useH5Camera(hostSelector: string) {
       failed.value = false;
       return;
     }
-    stop();
+    releaseStream();
     try {
-      stream = await openStream();
-      mountVideo(host, stream);
+      const next = await openStream();
+      if (ticket !== session) {
+        stopStream(next);
+        return;
+      }
+      stream = next;
+      mountVideo(host, next);
       await video?.play();
+      if (ticket !== session) {
+        releaseStream();
+        return;
+      }
       liveFallback.value = false;
       failed.value = false;
     } catch {
+      if (ticket !== session) {
+        return;
+      }
       liveFallback.value = true;
       failed.value = true;
     }
@@ -107,13 +125,38 @@ export function useH5Camera(hostSelector: string) {
   }
 
   function stop() {
-    stream?.getTracks().forEach((track) => track.stop());
+    session += 1;
+    releaseStream();
+  }
+
+  function releaseStream() {
+    stopStream(stream);
     stream = null;
     if (video) {
+      video.pause();
       video.srcObject = null;
       video.remove();
       video = null;
     }
+    releaseOrphanStreams();
+  }
+
+  function stopStream(target: MediaStream | null) {
+    target?.getTracks().forEach((track) => track.stop());
+  }
+
+  function releaseOrphanStreams() {
+    if (typeof document === "undefined") {
+      return;
+    }
+    document.querySelectorAll("video").forEach((node) => {
+      const media = node.srcObject;
+      if (!media || typeof (media as MediaStream).getTracks !== "function") {
+        return;
+      }
+      stopStream(media as MediaStream);
+      node.srcObject = null;
+    });
   }
 
   return { liveFallback, failed, start, stop, capture };

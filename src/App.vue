@@ -1,15 +1,11 @@
-<template>
-  <ForceUpgradeHost />
-</template>
-
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
-import ForceUpgradeHost from "@/components/kiosk/force-upgrade-host.vue";
+import { discardMismatchedDevice } from "@/lib/device-auth";
 import { captureDeviceCodeFromLaunch, hasAdminSession, loadDeviceCodeFromFile } from "@/lib/device-session";
 import { resolveKioskAuth } from "@/lib/kiosk-auth";
 import { ADMIN_PAGES, KIOSK_PAGES } from "@/lib/kiosk-routes";
-import { requestOtaInspect } from "@/lib/ota-upgrade";
+import { trackSdk } from "@/lib/track-sdk";
 import { ensureLocalScreenVersion } from "@/lib/screen-version";
 import KioskToast from "@/components/kiosk/kiosk-toast.vue";
 import successIcon from "@/static/admin/success.svg";
@@ -17,6 +13,7 @@ import errIcon from "@/static/admin/error.svg";
 
 
 onLaunch((options) => {
+  discardMismatchedDevice();
   captureDeviceCodeFromLaunch(options?.query as Record<string, string | undefined> | undefined);
   ensureLocalScreenVersion();
   // 区分开发/生产环境
@@ -34,9 +31,9 @@ onMounted(() => {
           title,
           duration,
         }),
-      error: (title: string, duration: number = 2000) =>
+      error: (title: string, icon?: string, duration: number = 2000) =>
         uni.$emit("kiosk:toast:show", {
-          icon: errIcon,
+          icon: icon || errIcon,
           title,
           duration,
         }),
@@ -56,6 +53,20 @@ onMounted(() => {
 	        duration,
 	      }),
 	  };
+	  // 自定义modal挂载
+	  (uni as any).$ResultModal = {
+	      show: (opts: any) => uni.$emit("kiosk:ResultModal:show", opts),
+	      hide: () => uni.$emit("kiosk:ResultModal:hide"),
+	      load: (title: string, dec: string, btnText: string, type: number, duration: number = 2000, url: string) =>
+	        uni.$emit("kiosk:ResultModal:show", {
+	          title,
+	  		dec,
+	  		btnText,
+	  		type,
+	          duration,
+			  url,
+	        }),
+	    };
 });
 
 onShow(() => {
@@ -75,7 +86,6 @@ async function onAppShow() {
   } else if (route.startsWith("pages/kiosk/")) {
     await gateKiosk(route);
   }
-  requestOtaInspect();
 }
 
 async function gateKiosk(route: string) {
@@ -85,7 +95,9 @@ async function gateKiosk(route: string) {
   }
 }
 
-onHide(() => {});
+onHide(() => {
+  void trackSdk.flush();
+});
 </script>
 
 <style>

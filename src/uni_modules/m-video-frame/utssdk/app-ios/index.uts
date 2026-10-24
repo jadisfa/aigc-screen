@@ -1,0 +1,98 @@
+import { ExtractVideoFrameOptions, ExtractVideoFrameResult } from '../interface.uts'
+import { createErrorObject, createErrorObjectWithMsg } from '../unierror.uts'
+
+/**
+ * iOS video frame extract.
+ * Native: VideoFrameNative.swift
+ * UTS only uses 0-arg / 1-arg calls (multi-arg positional calls break on cloud pack).
+ * createErrorObject must be fixed-arity (optional 2nd param caused missing argument #2).
+ */
+export async function extractVideoFrame(options: ExtractVideoFrameOptions): Promise<ExtractVideoFrameResult> {
+  return new Promise<ExtractVideoFrameResult>((resolve, reject) => {
+    try {
+      const input = (options.url ?? '').trim()
+      if (input.length == 0) {
+        reject(createErrorObject(9030002))
+        return
+      }
+
+      const timeMs = getTimeMs(options)
+      const format = normalizeFormat(options.format)
+      const quality = normalizeQuality(options.quality)
+      const maxWidth = options.maxWidth ?? 0
+      const maxHeight = options.maxHeight ?? 0
+      const fileName = options.fileName ?? ''
+
+      const plugin = VideoFrameNative()
+      plugin.resetOptions()
+      plugin.setUrl(input)
+      plugin.setTimeMs(timeMs)
+      plugin.setFormat(format)
+      plugin.setQuality(quality)
+      plugin.setMaxWidth(maxWidth)
+      plugin.setMaxHeight(maxHeight)
+      plugin.setFileName(fileName)
+
+      const ok = plugin.extract()
+      if (ok == null) {
+        reject(createErrorObject(9030001))
+        return
+      }
+
+      const path = plugin.getPath()
+      if (path.length == 0) {
+        reject(createErrorObject(9030001))
+        return
+      }
+
+      resolve({
+        path: path,
+        width: plugin.getWidth(),
+        height: plugin.getHeight(),
+        format: plugin.getFormat(),
+        timeMs: plugin.getTimeMs(),
+        size: plugin.getSize()
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '抽帧失败'
+      reject(createErrorObjectWithMsg(9030001, msg))
+    }
+  })
+}
+
+function getTimeMs(options: ExtractVideoFrameOptions): number {
+  if (options.timeMs != null) {
+    const v = options.timeMs!
+    if (v < 0) {
+      return 0
+    }
+    return v
+  }
+  if (options.timeSec != null) {
+    const v = options.timeSec! * 1000
+    if (v < 0) {
+      return 0
+    }
+    return v
+  }
+  return 0
+}
+
+function normalizeFormat(format?: string | null): string {
+  const value = (format ?? 'jpg').toLowerCase()
+  if (value == 'png') {
+    return 'png'
+  }
+  return 'jpg'
+}
+
+function normalizeQuality(quality?: number | null): number {
+  const value = quality ?? 90
+  if (value < 1) {
+    return 1
+  }
+  if (value > 100) {
+    return 100
+  }
+  return value
+}

@@ -3,22 +3,24 @@
     <view id="kioskCamLive" class="cam__live">
       <!-- #ifdef APP-PLUS || MP-WEIXIN -->
       <camera
-        v-if="phase === 'idle' || phase === 'countdown'"
+        v-if="(phase === 'idle' || phase === 'countdown') && !cameraFailed"
         id="kioskCamera"
         class="cam__sensor"
         device-position="front"
         flash="off"
+        @error="onCameraError"
       />
       <!-- #endif -->
     </view>
-    <image
+
+    <!-- <image
       v-if="photo && phase !== 'idle' && phase !== 'countdown'"
       class="cam__shot"
       :src="photo"
       mode="aspectFill"
-    />
+    /> -->
 
-    <view v-if="phase === 'idle' || phase === 'countdown'" class="cam__veil">
+   <!-- <view v-if="phase === 'idle' || phase === 'countdown'" class="cam__veil">
       <view class="cam__veil-t" />
       <view class="cam__veil-mid">
         <view class="cam__veil-l" />
@@ -35,13 +37,20 @@
 
     <view class="cam__close" hover-class="none" @click="onClose">
       <image class="cam__close-icon" :src="ASSETS.close" mode="aspectFit" />
-    </view>
+    </view> -->
 
-    <text v-if="(phase === 'idle' || phase === 'countdown') && cameraFailed" class="cam__cam-error">
-      无法打开摄像头，请检查权限后重试
-    </text>
+    <!-- 权限失败提示 -->
+    <!-- <view
+      v-if="(phase === 'idle' || phase === 'countdown') && cameraFailed"
+      class="cam__cam-error"
+    >
+      <text class="cam__cam-error-text">无法打开摄像头，请检查权限后重试</text>
+      <view class="cam__cam-error-btn" hover-class="none" @click="retryAuth">
+        <text>重新申请权限</text>
+      </view>
+    </view> -->
 
-    <text v-if="phase === 'idle' || phase === 'countdown'" class="cam__hint">
+    <!-- <text v-if="phase === 'idle' || phase === 'countdown'" class="cam__hint">
       {{ flow.cameraHint }}
     </text>
 
@@ -61,7 +70,10 @@
       <text class="cam__count-num">{{ countdown }}</text>
     </view>
 
-    <view v-if="phase === 'preview' || phase === 'recognizing' || phase === 'failed'" class="cam__review">
+    <view
+      v-if="phase === 'preview' || phase === 'recognizing' || phase === 'failed'"
+      class="cam__review"
+    >
       <view class="cam__circle" hover-class="none" @click="retake">
         <image class="cam__circle-icon" :src="ASSETS.retake" mode="aspectFit" />
       </view>
@@ -69,7 +81,10 @@
         <image class="cam__circle-icon" :src="ASSETS.confirm" mode="aspectFit" />
       </view>
     </view>
-    <view v-if="phase === 'preview' || phase === 'recognizing' || phase === 'failed'" class="cam__review-labels">
+    <view
+      v-if="phase === 'preview' || phase === 'recognizing' || phase === 'failed'"
+      class="cam__review-labels"
+    >
       <text>重拍</text>
       <text>确定</text>
     </view>
@@ -103,7 +118,7 @@
           <text>重新拍照</text>
         </view>
       </view>
-    </view>
+    </view> -->
   </view>
 </template>
 
@@ -111,8 +126,15 @@
 import { computed, onUnmounted, ref } from "vue";
 import { onHide, onLoad, onReady, onShow, onUnload } from "@dcloudio/uni-app";
 import { goBackOr } from "@/lib/kiosk-routes";
-import { parseUploadIntent, scanUploadUrl, UPLOAD_FLOWS, writePreview, type UploadIntent } from "@/lib/upload-flow";
+import {
+  parseUploadIntent,
+  scanUploadUrl,
+  UPLOAD_FLOWS,
+  writePreview,
+  type UploadIntent,
+} from "@/lib/upload-flow";
 import { useH5Camera } from "@/lib/use-h5-camera";
+import { ensureCameraAuth } from "@/lib/camera-auth";
 
 type Phase = "idle" | "countdown" | "preview" | "recognizing" | "failed";
 
@@ -135,25 +157,51 @@ const countdown = ref(5);
 const progress = ref(0);
 const photo = ref("");
 const h5 = useH5Camera("#kioskCamLive");
-const cameraFailed = h5.failed;
+// 统一的"相机不可用"标记（H5 + App 共用）
+const cameraFailed = ref(false);
+
+let timer: ReturnType<typeof setInterval> | null = null;
+let recognizeTimer: ReturnType<typeof setInterval> | null = null;
 
 onLoad((query?: Record<string, string>) => {
   intent.value = parseUploadIntent(query);
 });
 
-let timer: ReturnType<typeof setInterval> | null = null;
-let recognizeTimer: ReturnType<typeof setInterval> | null = null;
+onReady(async () => {
 
-onReady(() => {
+  // ===== 2. H5 启动本地视频流 =====
   // #ifdef H5
   void h5.start();
   // #endif
+
+  // ===== 3. App 端：<camera> 组件会自动启动，无需手动操作 =====
 });
 
-onShow(() => {
+onShow(async() => {
+  // H5 从后台切回，重新启动摄像头（浏览器可能已释放）
   // #ifdef H5
-  void h5.start();
+  if (!cameraFailed.value) void h5.start();
   // #endif
+  // ===== 1. 统一申请权限 =====
+  const ok = await ensureCameraAuth();
+  console.log(ok)
+  if (!ok) {
+    cameraFailed.value = true;
+	uni.openAppAuthorizeSetting({
+		success: (r: any) => {
+			console.log(r)
+		            const granted = r.authSetting?.["scope.camera"] === true;
+		            console.log(granted)
+		          }
+	})
+    return;
+  }
+ //  cameraFailed.value = false;
+ //  uni.showModal({
+ //  	cancelText: '取消',
+	// confirmText: '确定',
+	// content: '测试'
+ //  })
 });
 
 onHide(() => {
@@ -177,15 +225,31 @@ function teardown() {
   h5.stop();
 }
 
+function onCameraError(e: any) {
+  console.error("[camera] error", e);
+  cameraFailed.value = true;
+}
+
 function onClose() {
   teardown();
   goBackOr(scanUploadUrl(intent.value));
 }
 
-function startCountdown() {
-  if (phase.value !== "idle") {
+async function retryAuth() {
+  cameraFailed.value = false;
+  const ok = await ensureCameraAuth();
+  if (!ok) {
+    cameraFailed.value = true;
     return;
   }
+  // #ifdef H5
+  void h5.start();
+  // #endif
+}
+
+function startCountdown() {
+  if (phase.value !== "idle") return;
+  if (cameraFailed.value) return;
   countdown.value = 5;
   phase.value = "countdown";
   timer = setInterval(() => {
@@ -212,9 +276,7 @@ function retake() {
 }
 
 function confirmPhoto() {
-  if (phase.value !== "preview" || !photo.value) {
-    return;
-  }
+  if (phase.value !== "preview" || !photo.value) return;
   if (flow.value.skipRecognize) {
     writePreview(intent.value, photo.value);
     goBackOr(scanUploadUrl(intent.value));
@@ -223,9 +285,7 @@ function confirmPhoto() {
   phase.value = "recognizing";
   progress.value = 0;
   const started = Date.now();
-  if (recognizeTimer) {
-    clearInterval(recognizeTimer);
-  }
+  if (recognizeTimer) clearInterval(recognizeTimer);
   recognizeTimer = setInterval(() => {
     const next = Math.min(100, Math.round(((Date.now() - started) / 1800) * 100));
     progress.value = next;
@@ -247,19 +307,22 @@ async function capture() {
   // #endif
 }
 
-function captureApp() {
-  return new Promise<void>((resolve) => {
+function captureApp(): Promise<void> {
+  return new Promise((resolve) => {
+    // ★ 不传参数
     const ctx = uni.createCameraContext();
-    ctx.takePhoto({
+    // ★ 用 as any 绕过类型检查
+    (ctx as any).takePhoto({
       quality: "high",
-      success: (res) => {
+      success: (res: any) => {
         photo.value = res.tempImagePath;
         phase.value = "preview";
         resolve();
       },
-      fail: () => {
-        photo.value = "";
-        phase.value = "preview";
+      fail: (err: any) => {
+        console.error("[camera] takePhoto fail", err);
+        uni.showToast({ title: "拍照失败，请重试", icon: "none" });
+        phase.value = "idle";
         resolve();
       },
     });
@@ -267,10 +330,20 @@ function captureApp() {
 }
 
 function captureH5() {
-  photo.value = h5.capture("");
-  phase.value = "preview";
+  try {
+    const data = h5.capture("");
+    if (data) {
+      photo.value = data;
+      phase.value = "preview";
+    } else {
+      uni.showToast({ title: "拍照失败，请重试", icon: "none" });
+      phase.value = "idle";
+    }
+  } catch (err) {
+    console.error("[camera] captureH5 fail", err);
+    phase.value = "idle";
+  }
 }
-
 </script>
 
 <style>
@@ -278,7 +351,7 @@ page {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: #000;
+  background: #fff;
 }
 
 /* #ifdef H5 */
@@ -292,7 +365,7 @@ uni-page-body {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background: #000;
+  background: #dfdfdf;
 }
 /* #endif */
 
@@ -307,7 +380,7 @@ uni-page-body {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: #000;
+  background: #dcdcdc;
   position: relative;
   overflow: hidden;
 }

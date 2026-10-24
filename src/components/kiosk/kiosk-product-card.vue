@@ -1,7 +1,7 @@
 <template>
   <view class="kiosk-product" :class="['is-' + size, { 'is-framed': framed }]" hover-class="none" @click="onClick">
     <view class="kiosk-product__image">
-      <image :src="product.image" mode="scaleToFill" />
+      <image class="kiosk-product__shot" :src="product.image" mode="aspectFill" />
     </view>
     <view class="kiosk-product__body">
       <text class="kiosk-product__name">{{ product.title }}</text>
@@ -81,7 +81,8 @@ function onClick() {
   height: calc(480 * var(--u));
 }
 
-.kiosk-product__image image {
+.kiosk-product__shot {
+  display: block;
   width: 100%;
   height: 100%;
 }

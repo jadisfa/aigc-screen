@@ -8,7 +8,7 @@
     </view>
 
     <view class="login-sheet">
-      <text class="login-sheet__title">奈杜美甲-三孝口店</text>
+      <text class="login-sheet__title">{{ storeName }}</text>
       <text class="login-sheet__lead">输入管理员密码进入设备后台管理</text>
       <view class="login-sheet__field">
         <input
@@ -39,9 +39,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
-import { loginDevice, showLoginError } from "@/lib/device-auth";
+import { ensureStore, resolveStoreName } from "@/data/store";
+import { discardMismatchedDevice, loginDevice, showLoginError } from "@/lib/device-auth";
 import { captureDeviceCodeFromLaunch } from "@/lib/device-session";
 import { ADMIN_PAGES, KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
 
@@ -55,11 +56,23 @@ const ASSETS = {
 const password = ref("");
 const showPlain = ref(false);
 const submitting = ref(false);
+discardMismatchedDevice();
+const storeName = ref(resolveStoreName());
 const canSubmit = computed(() => Boolean(password.value) && !submitting.value);
 
 onLoad((query?: Record<string, string>) => {
   captureDeviceCodeFromLaunch(query);
 });
+
+onShow(() => {
+  storeName.value = resolveStoreName();
+  void loadStoreName();
+});
+
+async function loadStoreName() {
+  const store = await ensureStore();
+  storeName.value = resolveStoreName(store?.name);
+}
 
 function onBack() {
   goBackOr(KIOSK_PAGES.home);

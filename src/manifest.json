@@ -2,8 +2,8 @@
     "name" : "NAILOOK",
     "appid" : "__UNI__1A77A03",
     "description" : "NAILOOK 电子屏首页",
-    "versionName" : "0.1.0",
-    "versionCode" : "1",
+    "versionName" : "0.0.2",
+    "versionCode" : "35",
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
@@ -22,7 +22,10 @@
             "delay" : 0
         },
         /* 模块配置 */
-        "modules" : {},
+        "modules" : {
+            "VideoPlayer" : {},
+            "Camera" : {}
+        },
         /* 应用发布信息 */
         "distribute" : {
             /* android打包配置 */
@@ -47,10 +50,23 @@
             },
             /* ios打包配置 */
             "ios" : {
-                "dSYMs" : false
+                "dSYMs" : false,
+                "privacyDescription" : {
+                    "NSCameraUsageDescription" : "需要使用相机拍摄美甲照片",
+                    "NSPhotoLibraryUsageDescription" : "需要访问相册以选择照片",
+                    "NSMicrophoneUsageDescription" : "需要使用麦克风"
+                }
             },
             /* SDK配置 */
-            "sdkConfigs" : {}
+            "sdkConfigs" : {},
+            "icons" : {
+                "android" : {
+                    "hdpi" : "src/static/images/app-logo.png",
+                    "xhdpi" : "src/static/images/app-logo.png",
+                    "xxhdpi" : "src/static/images/app-logo.png",
+                    "xxxhdpi" : "src/static/images/app-logo.png"
+                }
+            }
         }
     },
     /* 快应用特有相关 */

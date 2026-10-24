@@ -49,12 +49,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from "vue";
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { computed, ref } from "vue";
+import { onLoad, onShow, onUnload } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
 import {
   clearTryOnHandId,
+  clearTryOnHandSelection,
   readTryOnHandId,
+  readTryOnLookId,
+  readTryOnNailUrl,
   resolveLook,
   toKioskHands,
   writeTryOnHandId,
@@ -65,9 +68,10 @@ import {
 } from "@/data/try-on";
 import { loadListedProduct } from "@/data/kiosk-catalog";
 import { KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
+import { trackTryonSubmit } from "@/lib/track-events";
 import { fetchHandModels } from "@/lib/screen-api/hand-models";
 import { showScreenError } from "@/lib/screen-http";
-import { clearPreview, readPreview, scanUploadUrl } from "@/lib/upload-flow";
+import { clearPreview, readPreview, scanUploadUrl, writePreview } from "@/lib/upload-flow";
 
 const ASSETS = {
   back: "/static/scan/back.svg",
@@ -79,6 +83,7 @@ const ASSETS = {
 };
 
 const nails = ref("");
+const lookId = ref("");
 const hands = ref<HandModel[]>([]);
 const selectedId = ref("");
 const uploaded = ref("");
@@ -92,21 +97,61 @@ const handImage = computed(() => {
 
 const canGenerate = computed(() => Boolean(handImage.value && nails.value));
 
-onLoad((query?: Record<string, string>) => {
-  const stashId = uni.getStorageSync('selectId') || query?.look;
-  writeTryOnLookId(stashId || "");
-  nails.value = resolveLook(stashId).image;
-  if (stashId) {
-    loadListedProduct(stashId)
-      .then((item) => {
-        nails.value = item.image;
-      })
-      .catch(() => undefined);
+function hydrateLook(queryLook?: string) {
+  const nextLookId = String(queryLook || readTryOnLookId() || "").trim();
+  lookId.value = nextLookId;
+  if (nextLookId) {
+    writeTryOnLookId(nextLookId);
   }
+  const storedNail = readTryOnNailUrl();
+  const resolved = resolveLook(nextLookId).image;
+  nails.value = storedNail || resolved || nails.value;
+  if (!nextLookId) {
+    return;
+  }
+  void loadListedProduct(nextLookId)
+    .then((item) => {
+      if (!item.image || lookId.value !== nextLookId) {
+        return;
+      }
+      if (!storedNail) {
+        nails.value = item.image;
+        writeTryOnNailUrl(item.image);
+      }
+    })
+    .catch(() => undefined);
+}
+
+onLoad((query?: Record<string, string>) => {
+  if (query?.look) {
+    selectedId.value = "";
+    // uploaded.value = "";
+    clearTryOnHandSelection();
+    // clearPreview("hand-model");
+  }
+  hydrateLook(query?.look);
+  // 处理相机拍摄结果 assetUrl 或 path
+  uni.$on('camera-captured', (data) => {
+      console.log('收到拍照回传：', data, data.assetUrl);
+  	  // 1. 清空官方手模选中状态
+  	  selectedId.value = ''
+  	  // 2. 清空本地选中记录（防止 onShow 时又回填）
+  	  clearTryOnHandId()
+  	  // 3. 写入本地预览草稿
+  	  writePreview("hand-model", data.assetUrl)
+      uploaded.value = data?.assetUrl;
+      // 例如更新 preview、写入本地上传草稿等
+    })
 });
 
+onUnload(() => {
+  uni.$off('camera-captured') // 避免重复监听
+})
+
 onShow(() => {
+  hydrateLook();
   uploaded.value = readPreview("hand-model");
+  console.log(readPreview("hand-model"), 155)
   if (uploaded.value) {
     selectedId.value = "";
     clearTryOnHandId();
@@ -125,16 +170,24 @@ async function loadHands() {
 }
 
 function onBack() {
-  // goBackOr(KIOSK_PAGES.results);
-  console.log('试戴返回')
-  const productId = uni.getStorageSync('selectId') || '';
-  uni.navigateTo({
-  	url: `/pages/kiosk/generate/product-detail/index?id=${productId}`
-  })
+  const pages = getCurrentPages();
+  if (pages.length > 1) {
+    uni.navigateBack({ delta: 1 });
+    return;
+  }
+  const productId = lookId.value || readTryOnLookId();
+  if (productId) {
+    uni.redirectTo({ url: `${KIOSK_PAGES.productDetail}?id=${encodeURIComponent(productId)}` });
+    return;
+  }
+  goBackOr(KIOSK_PAGES.results);
 }
 
 function onUpload() {
-  uni.navigateTo({ url: scanUploadUrl("hand-model") });
+	const pages = getCurrentPages();
+	const currentPage = pages[pages.length - 1];
+	const fullPath = currentPage.$page?.fullPath; // 来源，供相机拍色号返回
+  uni.navigateTo({ url: `${scanUploadUrl("hand-model")}&fullPath=${fullPath}` });
 }
 
 function onPick(id: string) {
@@ -154,6 +207,10 @@ function clearHand() {
 function onGenerate() {
   if (!canGenerate.value) {
     return;
+  }
+  trackTryonSubmit();
+  if (lookId.value) {
+    writeTryOnLookId(lookId.value);
   }
   writeTryOnImageUrl(handImage.value);
   writeTryOnNailUrl(nails.value);

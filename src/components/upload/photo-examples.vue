@@ -1,6 +1,6 @@
 <template>
   <view class="photo-examples">
-    <view v-for="item in (type != 'outfit' ? NAIL_EXAMPLES : PHOTO_EXAMPLES )" :key="item.id" class="photo-ex">
+    <view v-for="item in (type != 'outfit' && type != 'inspire' ? NAIL_EXAMPLES : PHOTO_EXAMPLES )" :key="item.id" class="photo-ex">
       <image class="photo-ex__img" :src="item.image" mode="aspectFill" />
       <image class="photo-ex__badge" :src="item.ok ? ICONS.ok : ICONS.bad" mode="aspectFit" />
       <view class="photo-ex__cap">
@@ -21,6 +21,7 @@ const ICONS = {
 const props = defineProps<{
   type?: string 
 }>();
+console.log(props.type)
 </script>
 
 <style>

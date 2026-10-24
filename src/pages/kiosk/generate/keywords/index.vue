@@ -6,7 +6,7 @@
 
     <text class="kw__title">{{ tab === "text" ? "描述你想要的美甲风格" : "点亮关键词" }}</text>
     <text class="kw__lead">{{
-      tab === "text" ? "风格、颜色、场合、气质或你喜欢的细节，越具体越准哦~" : "为您推荐心仪美甲"
+      tab === "text" ? "风格、颜色、场合、气质或你喜欢的细节，越具体越准哦~" : "每个维度选一个标签，让推荐的美甲更符合你的心意"
     }}</text>
 
     <view class="kw-seg">
@@ -42,55 +42,65 @@
     </view>
 
     <scroll-view v-else class="kw-pick" scroll-y :show-scrollbar="false">
-      <!-- 顶部分类 tab -->
-      <scroll-view
-        class="kw-cats"
-        scroll-x
-        :show-scrollbar="false"
-        @touchstart="interrupt"
-      >
-        <view class="kw-cats__row">
-          <view
-            v-for="(group, index) in KEYWORD_CATEGORIES"
-            :key="group.title"
-            class="kw-cat"
-            :class="{ 'is-on': catIndex === index }"
-            hover-class="none"
-            @click="selectCat(index)"
-          >
-            <text>{{ group.title }}</text>
+      <view v-if="loadingTags" class="kw-hint">
+        <text>标签加载中...</text>
+      </view>
+      <view v-else-if="!categories.length" class="kw-hint">
+        <text>暂无标签，请先在后台标签管理中配置</text>
+      </view>
+      <template v-else>
+        <scroll-view class="kw-cats" scroll-x :show-scrollbar="false">
+          <view class="kw-cats__row">
+            <view
+              v-for="(group, index) in categories"
+              :key="group.title"
+              class="kw-cat"
+              :class="{ 'is-on': catIndex === index }"
+              hover-class="none"
+              @click="selectCat(index)"
+            >
+              <text>{{ group.title }}</text>
+              <view class="kw-cat__bar" />
+            </view>
           </view>
-        </view>
-      </scroll-view>
+        </scroll-view>
 
-      <!-- 横向可滑动的分类内容 -->
-      <scroll-view
-        class="tags-list"
-        scroll-x
-        :show-scrollbar="false"
-        :scroll-left="scrollLeft"
-        :scroll-with-animation="false"
-        @scroll="onTagsScroll"
-        @touchstart="interrupt"
-      >
-        <view
-          v-for="(group, index) in KEYWORD_CATEGORIES"
-          :key="group.title"
-          class="kw-grid"
-          :id="`cat-${index}`"
+        <scroll-view
+          class="tags-list"
+          scroll-x
+          :show-scrollbar="false"
+          :scroll-left="scrollLeft"
+          :scroll-with-animation="false"
+          @scroll="onTagsScroll"
+          @touchstart="interrupt"
         >
           <view
-            v-for="tag in group.tags"
-            :key="tag"
-            class="kw-tag"
-            :class="{ 'is-on': selected.includes(tag) }"
-            hover-class="none"
-            @click="toggle(tag)"
+            v-for="(group, index) in categories"
+            :key="group.title"
+            class="kw-grid"
+            :id="`cat-${index}`"
+            :style="{ width: getGridWidth(group) }"
           >
-            <text>{{ tag }}</text>
+            <view
+              v-for="(row, rowIndex) in getLayout(group).rows"
+              :key="`${group.title}-${rowIndex}`"
+              class="kw-grid__row"
+              :class="{ 'is-offset': rowIndex % 2 === 1 }"
+            >
+              <view
+                v-for="tag in row"
+                :key="tag"
+                class="kw-tag"
+                :class="{ 'is-on': selected.includes(tag) }"
+                hover-class="none"
+                @click="toggle(tag)"
+              >
+                <text>{{ tag }}</text>
+              </view>
+            </view>
           </view>
-        </view>
-      </scroll-view>
+        </scroll-view>
+      </template>
 
       <view class="kw-mine">
         <text class="kw-mine__title">我的关键词({{ selected.length }}/{{ MAX_KEYWORD_COUNT }})</text>
@@ -119,32 +129,42 @@
 
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
 import {
   INSPIRE_QUERY_KEY,
   INSPIRE_TAGS_KEY,
-  KEYWORD_CATEGORIES,
   MAX_KEYWORD_COUNT,
+  keywordCategoriesFromTags,
+  type KeywordCategory,
 } from "@/data/inspire";
 import { KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
+import { fetchCatalogTags } from "@/lib/screen-api/catalog";
+import { showScreenError } from "@/lib/screen-http";
+import { trackMatchSubmit } from "@/lib/track-events";
 import { generatingUrl } from "@/lib/upload-flow";
 
 type Tab = "text" | "keywords";
 
 const ICONS = { back: "/static/scan/back.svg" };
 
-// ===== 固定尺寸（与 CSS 一一对应）=====
-const GRID_WIDTH_U = 1272; // .kw-grid 宽度（u）
-const GRID_GAP_U = 24;     // .kw-grid 右侧间距（u）
+// ===== 尺寸常量 =====
+const MIN_WIDTH_U = 1357;
+const WIDTH_STEP_U = 40;
+const MAX_ROWS = 4;
+const ODD_ROW_OFFSET_U = 85;
+const TAG_PADDING_X_U = 64;
+const TAG_GAP_U = 24;
+const TAG_FONT_U = 32;
+const GRID_RIGHT_GAP_U = 24;   // .kw-grid 之间的右侧间距
 
 // ===== 自动轮播配置 =====
-const AUTO_INTERVAL = 30;  // 每 30ms 走一步
-const AUTO_STEP = 1.5;     // 每步 1.5px ≈ 50px/s
-const USER_MOVE_THRESHOLD = 30; // 判定"用户手动滑动"的阈值
-const CLICK_GUARD_MS = 320;     // 点击 tab 后屏蔽反推的时长
-const RESUME_DELAY = 5000; // 用户操作后多久恢复自动轮播
-const CAT_SWITCH_HYSTERESIS = 0.15;
+const AUTO_INTERVAL = 30;
+const AUTO_STEP = 1.5;
+const USER_MOVE_THRESHOLD = 30;
+const CLICK_GUARD_MS = 320;
+const RESUME_DELAY = 5000;
 
 // ===== 状态 =====
 const tab = ref<Tab>("text");
@@ -152,13 +172,20 @@ const catIndex = ref(0);
 const query = ref("");
 const selected = ref<string[]>([]);
 const scrollLeft = ref(0);
+const categories = ref<KeywordCategory[]>([]);
+const loadingTags = ref(false);
 
 // ===== 内部状态 =====
 let autoTimer: ReturnType<typeof setInterval> | null = null;
-let autoPos = 0;              // 自动轮播当前坐标（px）
-let autoRunning = false;      // 是否正在自动轮播
+let autoPos = 0;
+let autoRunning = false;
 let resumeTimer: ReturnType<typeof setTimeout> | null = null;
-let isClickScrolling = false; // 点击 tab 期间屏蔽反推
+let isClickScrolling = false;
+
+// ★ 每个分类的累计起点位置（px），用于滑动反推
+const catStarts = ref<number[]>([]);
+// ★ 每个分类的宽度（px）
+const catWidths = ref<number[]>([]);
 
 // ===== 单位换算 =====
 function getUnit(): number {
@@ -167,23 +194,172 @@ function getUnit(): number {
   return Math.min(w, 1080) / 1080;
 }
 
-function getStep(): number {
-  return (GRID_WIDTH_U + GRID_GAP_U) * getUnit();
+function clampIndex(i: number): number {
+  return Math.max(0, Math.min(categories.value.length - 1, i));
 }
 
+// ===== tag 宽度估算 =====
+function charWidthRatio(ch: string): number {
+  const code = ch.codePointAt(0)!;
+  if (
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0x3000 && code <= 0x303f) ||
+    (code >= 0xff00 && code <= 0xffef)
+  ) return 1.0;
+  if (code >= 0x30 && code <= 0x39) return 0.55;
+  if (code >= 0x41 && code <= 0x5a) return 0.68;
+  if (code >= 0x61 && code <= 0x7a) return 0.55;
+  if (code === 0x20) return 0.28;
+  return 0.4;
+}
+
+function estimateTagWidthU(tag: string): number {
+  let textWidth = 0;
+  for (const ch of tag) textWidth += charWidthRatio(ch) * TAG_FONT_U;
+  return textWidth + TAG_PADDING_X_U * 2;
+}
+
+function rowWidthU(row: string[]): number {
+  if (!row.length) return 0;
+  return row.reduce((sum, tag) => sum + estimateTagWidthU(tag), 0)
+    + TAG_GAP_U * (row.length - 1);
+}
+
+// ===== 贪心分行（塞满）=====
+function computeRowsByGreedy(tags: string[], rowMaxU: number): string[][] {
+  if (!tags.length) return [];
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentWidth = 0;
+
+  for (const tag of tags) {
+    const tagWidth = estimateTagWidthU(tag);
+    const needed = currentRow.length === 0
+      ? tagWidth
+      : currentWidth + TAG_GAP_U + tagWidth;
+
+    const rowIndex = rows.length;
+    const rowOffset = rowIndex % 2 === 1 ? ODD_ROW_OFFSET_U : 0;
+    const available = rowMaxU - rowOffset;
+
+    if (currentRow.length > 0 && needed > available) {
+      rows.push(currentRow);
+      currentRow = [tag];
+      currentWidth = tagWidth;
+    } else {
+      currentRow.push(tag);
+      currentWidth = needed;
+    }
+  }
+  if (currentRow.length) rows.push(currentRow);
+  return rows;
+}
+
+// ===== 按数量均分 =====
+function splitEvenly(tags: string[], n: number): string[][] {
+  if (!tags.length) return Array.from({ length: n }, () => []);
+  if (n <= 0) return [];
+  const base = Math.floor(tags.length / n);
+  const remainder = tags.length % n;
+  const rows: string[][] = [];
+  let index = 0;
+  for (let i = 0; i < n; i++) {
+    const size = base + (i < remainder ? 1 : 0);
+    rows.push(tags.slice(index, index + size));
+    index += size;
+  }
+  return rows;
+}
+
+// ===== 反算宽度 =====
+function calcGridWidthU(rows: string[][]): number {
+  let maxWidth = MIN_WIDTH_U;
+  rows.forEach((row, i) => {
+    const rowW = rowWidthU(row);
+    const offset = i % 2 === 1 ? ODD_ROW_OFFSET_U : 0;
+    const need = rowW + offset;
+    if (need > maxWidth) maxWidth = need;
+  });
+  return maxWidth;
+}
+
+// ===== 核心：layoutTags =====
+function layoutTags(tags: string[]): {
+  rows: string[][];
+  widthU: number;
+} {
+  if (!tags.length) return { rows: [], widthU: MIN_WIDTH_U };
+
+  // 1. 最小宽度贪心分行
+  let widthU = MIN_WIDTH_U;
+  let rows = computeRowsByGreedy(tags, widthU);
+
+  // 2. ≤ 4 行 → 直接用最小宽度
+  if (rows.length <= MAX_ROWS) {
+    return { rows, widthU: MIN_WIDTH_U };
+  }
+
+  // 3. > 4 行 → 加宽（无上限）
+  while (rows.length > MAX_ROWS) {
+    widthU += WIDTH_STEP_U;
+    rows = computeRowsByGreedy(tags, widthU);
+  }
+
+  // 4. 加宽后按数量均分到 4 行
+  const rowCount = Math.min(rows.length, MAX_ROWS);
+  const evenRows = splitEvenly(tags, rowCount);
+
+  // 5. 反算宽度
+  const finalWidthU = Math.max(MIN_WIDTH_U, calcGridWidthU(evenRows));
+
+  return { rows: evenRows, widthU: finalWidthU };
+}
+
+// ===== 缓存 =====
+const layoutCache = new Map<string, ReturnType<typeof layoutTags>>();
+
+function getLayout(group: KeywordCategory) {
+  if (!layoutCache.has(group.title)) {
+    layoutCache.set(group.title, layoutTags(group.tags));
+  }
+  return layoutCache.get(group.title)!;
+}
+
+function getGridWidth(group: KeywordCategory): string {
+  const { widthU } = getLayout(group);
+  return `calc(${widthU} * var(--u))`;
+}
+
+// ===== 重算 catStarts / catWidths =====
+function recalcCatStarts() {
+  const u = getUnit();
+  const starts: number[] = [];
+  const widths: number[] = [];
+  let acc = 0;
+
+  categories.value.forEach((group) => {
+    const { widthU } = getLayout(group);
+    const widthPx = widthU * u;
+    starts.push(acc);
+    widths.push(widthPx);
+    // 累加：当前分类宽度 + 右侧间距
+    acc += widthPx + GRID_RIGHT_GAP_U * u;
+  });
+
+  catStarts.value = starts;
+  catWidths.value = widths;
+}
+
+// ===== 自动轮播 =====
 function getMaxScroll(): number {
-  // 最后一个分类起点 + 分类宽度 - 视口宽度 = 最大可滚距离
-  // 简化：直接用"分类数量 * 步长 - 视口宽度"，略大于实际
-  const total = getStep() * KEYWORD_CATEGORIES.length;
+  if (!catStarts.value.length) return 0;
+  const lastStart = catStarts.value[catStarts.value.length - 1];
+  const lastWidth = catWidths.value[catWidths.value.length - 1];
+  const total = lastStart + lastWidth;
   const viewport = uni.getSystemInfoSync().windowWidth || 375;
   return Math.max(0, total - viewport);
 }
 
-function clampIndex(i: number): number {
-  return Math.max(0, Math.min(KEYWORD_CATEGORIES.length - 1, i));
-}
-
-// ===== 自动轮播 =====
 function startAuto() {
   stopAutoTimer();
   autoRunning = true;
@@ -191,15 +367,14 @@ function startAuto() {
 
   autoTimer = setInterval(() => {
     if (!autoRunning) return;
-
     autoPos += AUTO_STEP;
 
     if (autoPos >= getMaxScroll()) {
       autoPos = 0;
       if (catIndex.value !== 0) catIndex.value = 0;
     } else {
-      const step = getStep();
-      const idx = clampIndex(Math.round(autoPos / step));
+      // ★ 用 catStarts 反推当前分类
+      const idx = findCatIndexByScroll(autoPos);
       if (idx !== catIndex.value) catIndex.value = idx;
     }
 
@@ -214,49 +389,44 @@ function stopAutoTimer() {
   }
 }
 
-// ===== 统一中断入口 =====
-function interrupt() {
-  // 任何用户交互都调这个
-  // if (!autoRunning) return;
-  // autoRunning = false;
-  // stopAutoTimer();
-  autoRunning = false;
-    stopAutoTimer();
-  
-    // 清掉旧的恢复计时器
-    if (resumeTimer) {
-      clearTimeout(resumeTimer);
-      resumeTimer = null;
-    }
-  
-    // 不在 keywords 页就不恢复
-    if (tab.value !== "keywords") return;
-  
-    // 延迟恢复
-    resumeTimer = setTimeout(() => {
-      resumeTimer = null;
-      if (tab.value === "keywords") {
-        startAuto();
-      }
-    }, RESUME_DELAY);
+// ★ 根据 scrollLeft 找当前分类
+function findCatIndexByScroll(scrollLeft: number): number {
+  const starts = catStarts.value;
+  if (!starts.length) return 0;
+  let idx = 0;
+  for (let i = 0; i < starts.length; i++) {
+    if (scrollLeft >= starts[i]) idx = i;
+    else break;
+  }
+  return clampIndex(idx);
 }
 
-// ===== 切换 tab =====
-function switchTab(next: Tab) {
-  if (tab.value === next) return;
-
-  // 清理所有计时器
+// ===== 统一中断 =====
+function interrupt() {
   autoRunning = false;
   stopAutoTimer();
   if (resumeTimer) {
     clearTimeout(resumeTimer);
     resumeTimer = null;
   }
+  if (tab.value !== "keywords") return;
+  resumeTimer = setTimeout(() => {
+    resumeTimer = null;
+    if (tab.value === "keywords") startAuto();
+  }, RESUME_DELAY);
+}
 
+// ===== 切换 tab =====
+function switchTab(next: Tab) {
+  if (tab.value === next) return;
+  autoRunning = false;
+  stopAutoTimer();
+  if (resumeTimer) {
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+  }
   tab.value = next;
-
   if (next === "keywords") {
-	  console.log(KEYWORD_CATEGORIES)
     catIndex.value = 0;
     scrollLeft.value = 0;
     autoPos = 0;
@@ -270,13 +440,10 @@ function switchTab(next: Tab) {
 function selectCat(index: number) {
   interrupt();
   catIndex.value = index;
-
-  const target = getStep() * index;
-
+  const target = catStarts.value[index] ?? 0;
   isClickScrolling = true;
   scrollLeft.value = target;
   autoPos = target;
-
   setTimeout(() => {
     isClickScrolling = false;
   }, CLICK_GUARD_MS);
@@ -286,37 +453,24 @@ function selectCat(index: number) {
 function onTagsScroll(e: any) {
   const left = e.detail?.scrollLeft ?? 0;
 
-  // 自动轮播中：判断是自动还是用户
   if (autoRunning) {
     const diff = Math.abs(left - autoPos);
     if (diff <= USER_MOVE_THRESHOLD) {
-      // 自动轮播自身：直接反推
-      const step = getStep();
-      if (step > 0) {
-        const idx = clampIndex(Math.round(left / step));
-        if (idx !== catIndex.value) catIndex.value = idx;
-      }
+      // 自动轮播自身：反推
+      const idx = findCatIndexByScroll(left);
+      if (idx !== catIndex.value) catIndex.value = idx;
       return;
     }
-    // 用户手动滑动：同步 + 中断
     scrollLeft.value = left;
     interrupt();
   } else {
-    // 已停自动轮播，同步位置
     scrollLeft.value = left;
   }
 
-  // 点击 tab 期间不反推
   if (isClickScrolling) return;
 
-  const step = getStep();
-  if (step <= 0) return;
-
-  // 直接 round，不做 hysteresis
-  const idx = clampIndex(Math.round(left / step));
-  if (idx !== catIndex.value) {
-    catIndex.value = idx;
-  }
+  const idx = findCatIndexByScroll(left);
+  if (idx !== catIndex.value) catIndex.value = idx;
 }
 
 // ===== 业务逻辑 =====
@@ -359,31 +513,58 @@ function onStart() {
     uni.setStorageSync(INSPIRE_QUERY_KEY, "");
     uni.setStorageSync(INSPIRE_TAGS_KEY, JSON.stringify(selected.value));
   }
-  uni.navigateTo({ url: generatingUrl() });
+  trackMatchSubmit();
+  uni.navigateTo({ url: `${generatingUrl()}&from=keywords` });
+}
+
+// ===== 数据加载 =====
+onShow(() => {
+  void loadTags();
+});
+
+async function loadTags() {
+  loadingTags.value = true;
+  try {
+    const tags = await fetchCatalogTags();
+    categories.value = keywordCategoriesFromTags(tags);
+    if (catIndex.value >= categories.value.length) catIndex.value = 0;
+
+    // ★ 数据变了，清缓存 + 重算 catStarts
+    layoutCache.clear();
+    // 等 DOM 渲染后再算（宽度依赖 layout）
+    setTimeout(() => {
+      recalcCatStarts();
+    }, 50);
+  } catch (error) {
+    categories.value = [];
+    showScreenError(error, "标签加载失败");
+  } finally {
+    loadingTags.value = false;
+  }
 }
 
 // ===== 生命周期 =====
 watch(tab, (val) => {
   if (val !== "keywords") {
     interrupt();
+  } else {
+    setTimeout(() => startAuto(), 400);
   }
 });
 
 onMounted(() => {
   if (tab.value === "keywords") {
     setTimeout(() => startAuto(), 400);
-	console.log(KEYWORD_CATEGORIES)
   }
 });
 
 onUnmounted(() => {
   stopAutoTimer();
-    if (resumeTimer) {
-      clearTimeout(resumeTimer);
-      resumeTimer = null;
-    }
+  if (resumeTimer) {
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+  }
 });
-
 </script>
 
 <style>
@@ -510,14 +691,32 @@ page {
 
 .kw-pick {
   margin-top: calc(40 * var(--u));
-  width: calc(984 * var(--u));
+  width: calc(1080 * var(--u));
+  padding-left: calc(48 * var(--u));
+  padding-bottom: calc(24 * var(--u));
+  box-sizing: border-box;
   flex: 1;
   min-height: 0;
   height: 0;
+  overflow: hidden;
+}
+
+/* #ifdef H5 */
+.kw-pick > .uni-scroll-view {
+  height: 100%;
+  max-height: 100%;
+}
+/* #endif */
+
+.kw-hint {
+  margin-top: calc(48 * var(--u));
+  font-size: calc(26 * var(--u));
+  color: #bbb;
+  text-align: center;
 }
 
 .kw-cats {
-  width: 100%;
+  width: calc(984 * var(--u));
   height: calc(64 * var(--u));
   white-space: nowrap;
 }
@@ -526,52 +725,79 @@ page {
   display: inline-flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: calc(40 * var(--u));
+  gap: calc(60 * var(--u));
 }
 
 .kw-cat {
   flex-shrink: 0;
-  padding-bottom: calc(10 * var(--u));
-  border-bottom: calc(6 * var(--u)) solid transparent;
-  font-size: calc(28 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  font-size: calc(32 * var(--u));
   font-weight: 500;
-  color: #bbb;
+  line-height: calc(45 * var(--u));
+  color: #777;
 }
 
 .kw-cat.is-on {
   font-weight: 700;
   color: #333;
-  border-bottom-color: #191919;
+}
+
+.kw-cat__bar {
+  width: calc(60 * var(--u));
+  height: calc(3 * var(--u));
+  border-radius: calc(22 * var(--u));
+  background: transparent;
+}
+
+.kw-cat.is-on .kw-cat__bar {
+  background: #191919;
 }
 
 .kw-grid {
-  width: calc(1272 * var(--u));
-  margin-top: calc(32 * var(--u));
+  min-width: calc(1357 * var(--u));
+  margin-top: calc(48 * var(--u));
   margin-right: calc(24 * var(--u));
   display: inline-flex;
+  flex-direction: column;
+  gap: calc(40 * var(--u));
+  vertical-align: top;
+  white-space: normal;
+}
+
+.kw-grid__row {
+  display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: calc(24 * var(--u)) 0;
+  align-items: center;
+  gap: calc(24 * var(--u));
+}
+
+.kw-grid__row.is-offset {
+  padding-left: calc(85 * var(--u));
 }
 
 .kw-tag {
-  /* width: calc((984 * var(--u) - 48 * var(--u)) / 3); */
-  width: auto;
+  height: calc(120 * var(--u));
   padding: 0 calc(64 * var(--u));
-  height: calc(112 * var(--u));
-  border-radius: calc(24 * var(--u));
+  border-radius: calc(32 * var(--u));
   background: #ebf1f4;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(28 * var(--u));
-  font-weight: 500;
+  font-size: calc(32 * var(--u));
+  font-weight: 700;
   color: #333;
   box-sizing: border-box;
-  margin-left: calc(24 * var(--u));
+  flex-shrink: 0;
+  overflow: hidden;
 }
-.kw-tag:first-child {
-	margin-left: 0;
+
+.kw-tag text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .kw-tag.is-on {
@@ -580,43 +806,46 @@ page {
 }
 
 .kw-mine {
+  width: calc(984 * var(--u));
   margin-top: calc(48 * var(--u));
   padding-bottom: calc(24 * var(--u));
 }
 
 .kw-mine__title {
-  font-size: calc(28 * var(--u));
+  font-size: calc(32 * var(--u));
   font-weight: 700;
   color: #333;
 }
 
 .kw-mine__list {
-  margin-top: calc(20 * var(--u));
+  margin-top: calc(32 * var(--u));
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: calc(16 * var(--u));
+  gap: calc(40 * var(--u));
 }
 
 .kw-mine__chip {
-  height: calc(52 * var(--u));
-  padding: 0 calc(20 * var(--u));
-  border: calc(2 * var(--u)) solid #ccc;
-  border-radius: calc(52 * var(--u));
+  height: calc(64 * var(--u));
+  padding: 0 calc(40 * var(--u));
+  border: calc(2 * var(--u)) solid #333;
+  border-radius: calc(35 * var(--u));
   background: #fff;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: calc(8 * var(--u));
+  justify-content: center;
+  gap: calc(16 * var(--u));
   font-size: calc(24 * var(--u));
+  font-weight: 700;
   color: #333;
   box-sizing: border-box;
 }
 
 .kw-mine__x {
-  font-size: calc(28 * var(--u));
+  font-size: calc(24 * var(--u));
   line-height: 1;
-  color: #777;
+  color: #333;
 }
 
 .kw__spacer {
@@ -641,6 +870,7 @@ page {
   margin-right: 0;
 }
 .tags-list {
-	white-space: nowrap;
+  width: calc(1032 * var(--u));
+  white-space: nowrap;
 }
 </style>

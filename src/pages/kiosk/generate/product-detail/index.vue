@@ -77,8 +77,11 @@ import {
   toKioskProductDetail,
   type KioskProductDetail,
 } from "@/data/kiosk-catalog";
-import { KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
+import { KIOSK_PAGES } from "@/lib/kiosk-routes";
 import { showScreenError } from "@/lib/screen-http";
+import { trackTryonEntry } from "@/lib/track-events";
+import { writeTryOnLookId, writeTryOnNailUrl, clearTryOnHandSelection } from "@/data/try-on";
+import { clearPreview } from "@/lib/upload-flow";
 
 const ASSETS = {
   back: "/static/results/back-white.svg",
@@ -125,11 +128,16 @@ async function loadProduct() {
 }
 
 function onBack() {
-  console.log('详情返回')
-  // goBackOr(KIOSK_PAGES.home);
-  uni.navigateTo({
-  	url: KIOSK_PAGES.home
-  })
+  if (getCurrentPages().length > 1) {
+    uni.navigateBack({
+      delta: 1,
+      fail: () => {
+        uni.reLaunch({ url: KIOSK_PAGES.home });
+      },
+    });
+    return;
+  }
+  uni.reLaunch({ url: KIOSK_PAGES.home });
 }
 
 function onThumb(index: number) {
@@ -140,7 +148,18 @@ function onTryOn() {
   if (!product.value) {
     return;
   }
-  uni.setStorageSync('selectId',product.value.id)
+  const nail = hero.value || product.value.hero || product.value.thumbs[0] || "";
+  trackTryonEntry();
+  clearTryOnHandSelection();
+  clearPreview("hand-model");
+  writeTryOnLookId(product.value.id);
+  writeTryOnNailUrl(nail);
+  const pages = getCurrentPages();
+  const previous = pages[pages.length - 2] as { route?: string } | undefined;
+  if (previous?.route === "pages/kiosk/try-on/index") {
+    uni.navigateBack({ delta: 1 });
+    return;
+  }
   uni.navigateTo({ url: `${KIOSK_PAGES.tryOn}?look=${encodeURIComponent(product.value.id)}` });
 }
 </script>

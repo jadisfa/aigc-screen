@@ -111,6 +111,8 @@ let latestVersionNo: number | null = null;
 let latestChangelog = "";
 
 onShow(() => {
+	const appInfo = uni.getAppBaseInfo();
+	console.log(appInfo.appVersionCode)
   loadVersion();
 });
 
@@ -120,7 +122,7 @@ onUnmounted(() => {
 
 async function loadVersion() {
   try {
-    const result = await checkOtaUpdate(true);
+    const result = await checkOtaUpdate(true, true);
     const localNo = resolveLocalScreenVersionNo();
     version.current = formatLocalScreenVersion(localNo);
     if (!result.latest || !result.latest.versionName) {

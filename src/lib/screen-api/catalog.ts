@@ -4,6 +4,8 @@ export type ScreenCatalogTag = {
   code: string;
   name: string;
   group?: string;
+  groupName?: string;
+  groupSortNo?: number;
 };
 
 export type ScreenCatalogAttr = {

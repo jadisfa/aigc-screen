@@ -1,5 +1,5 @@
 <template>
-  <view class="kiosk">
+  <view class="kiosk" @touchstart="onUserActivity">
     <view class="kiosk__scroll">
       <view class="kiosk-hero">
         <swiper
@@ -133,20 +133,33 @@
             <image class="kiosk-products__more-icon" :src="ICONS.more" mode="aspectFit" />
           </view>
         </view>
-		<swiper class="kiosk-products-swiper" :autoplay="recommendedProducts.length > 1">
-			<swiper-item v-for="(productRow, rowIndex) in recommendedProducts" :key="rowIndex" class="kiosk-swiper-item">
-				<view class="kiosk-products__inner">
-				  <view v-for="product in productRow" :key="product.id" class="kiosk-products__cell">
-				    <kiosk-product-card
-				      :product="product"
-				      size="rail"
-				      :show-action="true"
-				      @click="openKioskProduct(product.id)"
-				    />
-				  </view>
-				</view>
-			</swiper-item>
-		</swiper>
+        <view v-if="catalogLoading && !recommendedProducts.length" class="kiosk-products__inner kiosk-products__inner--skeleton">
+          <view v-for="n in 3" :key="n" class="kiosk-products__cell">
+            <view class="kiosk-products__skeleton" />
+          </view>
+        </view>
+        <view v-else-if="!recommendedProducts.length" class="kiosk-products__empty">
+          <text>暂无在售款式</text>
+        </view>
+        <swiper
+          v-else
+          class="kiosk-products-swiper"
+          :autoplay="recommendedProducts.length > 1"
+          :circular="recommendedProducts.length > 1"
+        >
+          <swiper-item v-for="(productRow, rowIndex) in recommendedProducts" :key="rowIndex" class="kiosk-swiper-item">
+            <view class="kiosk-products__inner">
+              <view v-for="product in productRow" :key="product.id" class="kiosk-products__cell">
+                <kiosk-product-card
+                  :product="product"
+                  size="rail"
+                  :show-action="true"
+                  @click="onHomeProduct(product.id)"
+                />
+              </view>
+            </view>
+          </swiper-item>
+        </swiper>
         <!-- <scroll-view class="kiosk-products__rail" scroll-x :show-scrollbar="false">
           <view class="kiosk-products__inner">
             <view v-for="product in recommendedProducts" :key="product.id" class="kiosk-products__cell">
@@ -154,7 +167,7 @@
                 :product="product"
                 size="rail"
                 :show-action="true"
-                @click="openKioskProduct(product.id)"
+                @click="onHomeProduct(product.id)"
               />
             </view>
           </view>
@@ -165,13 +178,21 @@
     <view class="kiosk-footer">
       <view class="kiosk-footer__addr">
         <image class="kiosk-footer__pin" :src="ICONS.pin" mode="aspectFit" />
-        <text class="kiosk-footer__addr-text">{{ DEFAULT_STORE_ADDRESS }}</text>
+        <text class="kiosk-footer__addr-text" :class="{ 'is-pending': storeAddressPending }">{{
+          storeAddress
+        }}</text>
       </view>
       <view class="kiosk-footer__admin" hover-class="none" @click="onAdmin">
         <image class="kiosk-footer__admin-icon" :src="ICONS.admin" mode="aspectFit" />
         <text>管理员登录</text>
       </view>
     </view>
+
+    <kiosk-fullscreen-ad
+      :visible="showFullscreen && !forceUpgradeBlocking"
+      :ads="fullscreenAds"
+      @dismiss="dismissFullscreen"
+    />
 
     <view v-if="unauthorized" class="kiosk-lock">
       <text class="kiosk-lock__msg">{{ unauthorizedMessage }}</text>
@@ -224,33 +245,38 @@
         </view>
       </view>
     </view>
+
+    <force-upgrade-host />
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { computed, ref, reactive, onUnmounted } from "vue";
+import { onHide, onShow, onPullDownRefresh } from "@dcloudio/uni-app";
+import ForceUpgradeHost from "@/components/kiosk/force-upgrade-host.vue";
+import KioskFullscreenAd from "@/components/kiosk/kiosk-fullscreen-ad.vue";
 import KioskProductCard from "@/components/kiosk/kiosk-product-card.vue";
-import {
-  DEFAULT_STORE_ADDRESS,
-  HOME_SLIDES,
-  INSPIRE_STEPS,
-  OUTFIT_STEPS,
-  type HomeProduct,
-} from "@/data/home";
+import { FULLSCREEN_IDLE_MS, listedBannerAds, listedFullscreenAds, type KioskAdSlide } from "@/data/ads";
+import { HOME_SLIDES, INSPIRE_STEPS, OUTFIT_STEPS, type HomeProduct } from "@/data/home";
 import { INSPIRE_MODE_KEY } from "@/data/inspire";
 import {
+  homeRailRows,
   openKioskProduct,
   peekListedProducts,
-  recommendedHomeProducts,
   refreshListedCatalog,
 } from "@/data/kiosk-catalog";
+import type { ProductItem } from "@/data/product";
+import { UPDATING_STORE_ADDRESS_TEXT } from "@/data/store";
 import { DEVICE_UNAUTHORIZED_MESSAGE } from "@/lib/device-auth";
+import { peekDeviceStoreAddress } from "@/lib/device-session";
+import { beginKioskVisit } from "@/lib/experience-flow";
 import { resolveKioskAuth } from "@/lib/kiosk-auth";
+import { createIdleTimer } from "@/lib/kiosk-idle";
 import { ADMIN_PAGES, KIOSK_PAGES } from "@/lib/kiosk-routes";
-import { fetchDeviceBanners, type ScreenBanner } from "@/lib/screen-api/banners";
+import { checkOtaUpdate, isForceUpgradeBlocking, subscribeForceUpgrade } from "@/lib/ota-upgrade";
+import { fetchDeviceBanners } from "@/lib/screen-api/banners";
+import { trackMatchEntry, trackOutfitEntry } from "@/lib/track-events";
 import { discardUploadDraft, scanUploadUrl } from "@/lib/upload-flow";
-import deviceConfig from "@/device.json";
 
 type HeroSlide = {
   id: string;
@@ -299,9 +325,94 @@ const showSheet = ref(false);
 const unauthorized = ref(false);
 const unauthorizedMessage = ref(DEVICE_UNAUTHORIZED_MESSAGE);
 const listedBanners = ref<HeroSlide[]>([]);
-const recommendedProducts = ref<HomeProduct[][]>([]);
-// const recommendedProducts = ref<HomeProduct[]>(recommendedHomeProducts(peekListedProducts()));
 const deviceInfo = reactive({})
+const fullscreenAds = ref<KioskAdSlide[]>([]);
+const showFullscreen = ref(false);
+const forceUpgradeBlocking = ref(isForceUpgradeBlocking());
+let unsubscribeForce: (() => void) | null = null;
+const recommendedProducts = ref<HomeProduct[][]>(homeRailRows(peekListedProducts()));
+const catalogLoading = ref(recommendedProducts.value.length === 0);
+const storeAddress = ref(peekDeviceStoreAddress() || UPDATING_STORE_ADDRESS_TEXT);
+const storeAddressPending = computed(() => storeAddress.value === UPDATING_STORE_ADDRESS_TEXT);
+
+// 定义每天刷新一次的间隔时间（毫秒）
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const LAST_BANNER_FETCH_KEY = "kiosk_last_banner_fetch";
+let dailyBannerTimer: ReturnType<typeof setInterval> | null = null;
+
+// 检查并决定是否请求 Banner
+function checkAndFetchBanners(delay = 0) {
+  const lastFetch = uni.getStorageSync(LAST_BANNER_FETCH_KEY);
+  const now = Date.now();
+
+  // 如果没有记录，或者距离上次请求超过 24 小时
+  if (!lastFetch || now - lastFetch >= ONE_DAY_MS) {
+    // 记录当前请求时间
+    uni.setStorageSync(LAST_BANNER_FETCH_KEY, now);
+    
+    // 如果需要延迟（比如在定时器里），可以使用 setTimeout
+    if (delay > 0) {
+      setTimeout(() => {
+        loadBanners();
+		loadRecommendedProducts();
+      }, delay);
+    } else {
+      loadBanners();
+	  loadRecommendedProducts();
+    }
+  }
+}
+
+// 启动每日定时器检查
+function startDailyBannerTimer() {
+  if (dailyBannerTimer) clearInterval(dailyBannerTimer);
+  
+  // 每隔 1 小时检查一次是否满 24 小时
+  // 这样即使页面一直不刷新，也能在到达 24 小时后的 1 小时内自动刷新
+  dailyBannerTimer = setInterval(() => {
+    checkAndFetchBanners();
+  }, 60 * 60 * 1000); 
+}
+
+onShow(() => {
+  beginKioskVisit();
+  unsubscribeForce?.();
+  unsubscribeForce = subscribeForceUpgrade(onForceUpgrade);
+  void checkAuthorized();
+  
+  // 每次页面显示时检查
+  checkAndFetchBanners();
+  // 启动长驻定时器
+  startDailyBannerTimer();
+});
+
+onHide(() => {
+  idleTimer.stop();
+  showFullscreen.value = false;
+  unsubscribeForce?.();
+  unsubscribeForce = null;
+  
+  // 页面隐藏时清理定时器，防止内存泄漏和后台无效运行
+  if (dailyBannerTimer) {
+    clearInterval(dailyBannerTimer);
+    dailyBannerTimer = null;
+  }
+});
+
+// 组件销毁时清理定时器（双重保险）
+onUnmounted(() => {
+  if (dailyBannerTimer) {
+    clearInterval(dailyBannerTimer);
+  }
+});
+
+const idleTimer = createIdleTimer(FULLSCREEN_IDLE_MS, () => {
+  if (forceUpgradeBlocking.value || unauthorized.value || !fullscreenAds.value.length) {
+    return;
+  }
+  showFullscreen.value = true;
+  idleTimer.stop();
+});
 
 const fallbackSlides: HeroSlide[] = HOME_SLIDES.map((slide, index) => ({
   id: `home-${index}`,
@@ -311,71 +422,120 @@ const fallbackSlides: HeroSlide[] = HOME_SLIDES.map((slide, index) => ({
 const heroSlides = computed(() => (listedBanners.value.length ? listedBanners.value : fallbackSlides));
 
 onShow(() => {
-  checkAuthorized();
+  beginKioskVisit();
+  unsubscribeForce?.();
+  unsubscribeForce = subscribeForceUpgrade(onForceUpgrade);
+  void checkAuthorized();
 });
 
-function chunk<T>(arr: T[], n: number): T[][] {
-  if (!Array.isArray(arr) || n <= 0) return [];
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += n) {
-    result.push(arr.slice(i, i + n));
+onHide(() => {
+  idleTimer.stop();
+  showFullscreen.value = false;
+  unsubscribeForce?.();
+  unsubscribeForce = null;
+});
+
+function onForceUpgrade(blocking: boolean) {
+  forceUpgradeBlocking.value = blocking;
+  if (!blocking) {
+    syncIdleTimer();
+    return;
   }
-  return result;
+  showFullscreen.value = false;
+  idleTimer.stop();
 }
 
 async function checkAuthorized() {
+  applyHomeRail(peekListedProducts());
   const state = await resolveKioskAuth();
   unauthorized.value = state === "unauthorized";
   if (unauthorized.value) {
     showSheet.value = false;
     listedBanners.value = [];
+    fullscreenAds.value = [];
+    showFullscreen.value = false;
+    idleTimer.stop();
     recommendedProducts.value = [];
+    catalogLoading.value = false;
+    storeAddress.value = peekDeviceStoreAddress() || UPDATING_STORE_ADDRESS_TEXT;
     heroPage.value = 0;
     return;
   }
-  await Promise.all([loadBanners(), loadRecommendedProducts()]);
+  void checkOtaUpdate(false);
+  await Promise.all([loadBanners(), loadRecommendedProducts(), loadStoreAddress()]);
+}
+
+function loadStoreAddress() {
+  storeAddress.value = peekDeviceStoreAddress() || UPDATING_STORE_ADDRESS_TEXT;
 }
 
 async function loadBanners() {
   try {
     const rows = await fetchDeviceBanners();
-    listedBanners.value = toListedBannerSlides(rows);
+    listedBanners.value = listedBannerAds(rows).map((slide) => ({
+      id: slide.id,
+      mode: "ad" as const,
+      src: slide.src,
+      mediaKind: slide.mediaKind,
+    }));
+    fullscreenAds.value = listedFullscreenAds(rows);
     if (heroPage.value >= heroSlides.value.length) {
       heroPage.value = 0;
     }
   } catch {
     listedBanners.value = [];
+    fullscreenAds.value = [];
   }
+  syncIdleTimer();
+}
+
+onPullDownRefresh(() => {
+	uni.setStorageSync(LAST_BANNER_FETCH_KEY, Date.now());
+	loadBanners();
+	loadRecommendedProducts();
+	uni.stopPullDownRefresh()
+})
+
+function syncIdleTimer() {
+  if (forceUpgradeBlocking.value || unauthorized.value || !fullscreenAds.value.length || showFullscreen.value) {
+    idleTimer.stop();
+    if (forceUpgradeBlocking.value || !fullscreenAds.value.length) {
+      showFullscreen.value = false;
+    }
+    return;
+  }
+  idleTimer.start();
+}
+
+function onUserActivity() {
+  if (forceUpgradeBlocking.value || unauthorized.value || showFullscreen.value) {
+    return;
+  }
+  idleTimer.bump();
+}
+
+function dismissFullscreen() {
+  showFullscreen.value = false;
+  syncIdleTimer();
 }
 
 async function loadRecommendedProducts() {
-  recommendedProducts.value = chunk(recommendedHomeProducts(peekListedProducts()), 3);
-  // recommendedProducts.value = chunk(recommendedHomeProducts(peekListedProducts()), 3);
+  applyHomeRail(peekListedProducts());
+  if (!recommendedProducts.value.length) {
+    catalogLoading.value = true;
+  }
   try {
     const cache = await refreshListedCatalog();
+    applyHomeRail(cache.products);
   } catch {
-    /* keep cached rail */
+    applyHomeRail(peekListedProducts());
+  } finally {
+    catalogLoading.value = false;
   }
 }
 
-function toListedBannerSlides(rows?: ScreenBanner[] | null): HeroSlide[] {
-  const slides: HeroSlide[] = [];
-  (rows || []).forEach((row, index) => {
-    if ((row.openDeviceConfig || "").toLowerCase() !== "yes") {
-      return;
-    }
-    const src = (row.previewUrl || "").trim();
-    if (!src) {
-      return;
-    }
-    slides.push({
-      id: row.configId || `banner-${index}`,
-      mode: "ad",
-      src,
-      mediaKind: row.displayForm === "video_dynamic" ? "video" : "image",
-    });
-  });
-  return slides;
+function applyHomeRail(items: ProductItem[]) {
+  recommendedProducts.value = homeRailRows(items);
 }
 
 function onHeroChange(event: { detail: { current: number } }) {
@@ -386,6 +546,7 @@ function onGenerate() {
   if (unauthorized.value) {
     return;
   }
+  trackOutfitEntry();
   uni.removeStorageSync(INSPIRE_MODE_KEY);
   discardUploadDraft("outfit");
   uni.navigateTo({ url: scanUploadUrl("outfit") });
@@ -406,6 +567,7 @@ function openOutfitUpload() {
   if (unauthorized.value) {
     return;
   }
+  trackOutfitEntry();
   uni.setStorageSync(INSPIRE_MODE_KEY, "outfit");
   showSheet.value = false;
   discardUploadDraft("inspire");
@@ -416,6 +578,7 @@ function openKeywords() {
   if (unauthorized.value) {
     return;
   }
+  trackMatchEntry();
   uni.setStorageSync(INSPIRE_MODE_KEY, "keyword");
   showSheet.value = false;
   uni.navigateTo({ url: KIOSK_PAGES.keywords });
@@ -425,7 +588,16 @@ function onMore() {
   if (unauthorized.value) {
     return;
   }
+  trackMatchEntry();
   uni.navigateTo({ url: KIOSK_PAGES.products });
+}
+
+function onHomeProduct(id: string) {
+  if (unauthorized.value) {
+    return;
+  }
+  trackMatchEntry();
+  openKioskProduct(id);
 }
 
 function onAdmin() {
@@ -854,29 +1026,49 @@ function onAdmin() {
   white-space: nowrap;
 }
 .kiosk-products-swiper {
-	width: calc(1080 * var(--u));
-	margin: 0 auto;
-	height: calc(460 * var(--u));
-	overflow: hidden;
+  width: calc(1080 * var(--u));
+  margin: 0 auto;
+  height: calc(460 * var(--u));
+  overflow: hidden;
 }
 .kiosk-swiper-item {
-	box-sizing: border-box;
-	padding: 0 calc(48 * var(--u));
+  box-sizing: border-box;
+  padding: 0 calc(48 * var(--u));
+  height: 100%;
 }
 .kiosk-products__inner {
-  display: inline-block;
-  white-space: nowrap;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  height: 100%;
+  box-sizing: border-box;
 }
-
+.kiosk-products__inner--skeleton {
+  padding: 0 calc(48 * var(--u));
+  height: calc(460 * var(--u));
+  box-sizing: border-box;
+}
 .kiosk-products__cell {
-  display: inline-block;
   width: calc(312 * var(--u));
+  flex-shrink: 0;
   margin-right: calc(24 * var(--u));
-  vertical-align: top;
 }
-
 .kiosk-products__cell:last-child {
   margin-right: 0;
+}
+.kiosk-products__skeleton {
+  width: 100%;
+  height: calc(432 * var(--u));
+  border-radius: calc(32 * var(--u));
+  background: #e6e6e6;
+}
+.kiosk-products__empty {
+  height: calc(160 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: calc(26 * var(--u));
 }
 
 .kiosk-footer {
@@ -912,6 +1104,11 @@ function onAdmin() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.kiosk-footer__addr-text.is-pending {
+  font-weight: 500;
+  color: #777;
 }
 
 .kiosk-footer__admin {

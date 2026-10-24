@@ -28,6 +28,8 @@ export type DeviceContextView = {
   authorities?: string[];
   roles?: string[];
   permissions?: string[];
+  storeName?: string;
+  storeAddress?: string;
 };
 
 /** 设备编码来源。native / provisioned 才落盘；query / file 不当成本机身份。 */
@@ -61,6 +63,47 @@ export type SessionKind = "admin" | "kiosk";
 
 /** 启动参数只活在本次进程，避免 URL 改写已绑定设备。 */
 let launchDeviceCode = "";
+/** 会话被替换的次数。排队中的签发看到代数变化就不再废掉新票。 */
+let sessionEpoch = 0;
+let sessionWork: Promise<void> = Promise.resolve();
+let sessionWorkDepth = 0;
+
+export function currentSessionEpoch(): number {
+  return sessionEpoch;
+}
+
+/** 当前是否正在签发或刷新。嵌套请求不能再等队列，否则会和自己死锁。 */
+export function isRenewingSession(): boolean {
+  return sessionWorkDepth > 0;
+}
+
+/**
+ * 开机 bootstrap 与 refresh 共用一条队列。
+ * 本地只有 screen.device.session 这一套票，不能两套签发同时写。
+ */
+export function enqueueSessionWork<T>(task: () => Promise<T>): Promise<T> {
+  const run = sessionWork.then(async () => {
+    sessionWorkDepth += 1;
+    try {
+      return await task();
+    } finally {
+      sessionWorkDepth -= 1;
+    }
+  });
+  sessionWork = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/** 等正在进行的签发结束，再读取 accessToken。 */
+export function whenSessionIdle(): Promise<void> {
+  if (sessionWorkDepth > 0) {
+    return Promise.resolve();
+  }
+  return sessionWork;
+}
 /** `/static/device.json` 读到的编码，仅内存。 */
 let fileDeviceCode = "";
 let fileLoad: Promise<void> | null = null;
@@ -139,10 +182,19 @@ export function clearDeviceIdentity(): void {
 }
 
 export function saveDeviceSession(view: DeviceTokenView, kind: SessionKind = "admin"): void {
-  uni.setStorageSync(SESSION_KEY, view);
+  const previous = getDeviceSession();
+  const next: DeviceTokenView = {
+    ...view,
+    deviceId: view.deviceId || previous?.deviceId,
+    deviceCode: view.deviceCode || previous?.deviceCode,
+    storeId: view.storeId || previous?.storeId,
+    merchantId: view.merchantId || previous?.merchantId,
+  };
+  uni.setStorageSync(SESSION_KEY, next);
   uni.setStorageSync(KIND_KEY, kind);
-  if (view.deviceCode) {
-    bindDeviceCodeFromServer(view.deviceCode);
+  sessionEpoch += 1;
+  if (next.deviceCode) {
+    bindDeviceCodeFromServer(next.deviceCode);
   }
 }
 
@@ -201,6 +253,7 @@ export function hasAdminSession(): boolean {
 export function clearDeviceSession(): void {
   uni.removeStorageSync(SESSION_KEY);
   uni.removeStorageSync(KIND_KEY);
+  sessionEpoch += 1;
 }
 
 export function clearDeviceContext(): void {
@@ -221,13 +274,42 @@ export function getDeviceContext(): DeviceContextView | null {
   return readCachedContext()?.view || readLegacyContext();
 }
 
-/** 一周内已验证过的设备上下文，未过期则不必再请求 device-context。 */
+export function peekDeviceStoreAddress(): string {
+  return (getDeviceContext()?.storeAddress || "").trim();
+}
+
+export function peekDeviceStoreName(): string {
+  return (getDeviceContext()?.storeName || "").trim();
+}
+
+/** 后台改完名址后写回授权缓存，避免首页继续显示旧地址。 */
+export function rememberDeviceStore(info: { name?: string; address?: string }) {
+  const current = getDeviceContext();
+  if (!current) {
+    return;
+  }
+  saveDeviceContext({
+    ...current,
+    storeName: (info.name || "").trim(),
+    storeAddress: (info.address || "").trim(),
+  });
+}
+
+/** 一周内已验证过的设备上下文，过期或缺门店名址则重新打 device-context。 */
 export function getFreshDeviceContext(): DeviceContextView | null {
   const cached = readCachedContext();
-  if (!cached || cached.expiresAt <= Date.now()) {
+  if (!cached || cached.expiresAt <= Date.now() || !hasStoreProfile(cached.view)) {
     return null;
   }
   return cached.view;
+}
+
+function hasStoreProfile(view: DeviceContextView | null): boolean {
+  if (!view) {
+    return false;
+  }
+  return Object.prototype.hasOwnProperty.call(view, "storeAddress")
+    || Object.prototype.hasOwnProperty.call(view, "storeName");
 }
 
 function readCachedContext(): CachedDeviceContext | null {

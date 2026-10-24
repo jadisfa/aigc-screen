@@ -39,7 +39,7 @@
 import { ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
-import { cacheHands, findHand, toHandItem, type HandItem } from "@/data/hand";
+import { cacheHands, findHand, toSortedHandItems, type HandItem } from "@/data/hand";
 import { ADMIN_PAGES, goBackOr } from "@/lib/kiosk-routes";
 import { deleteCustomHandModel, fetchHandModels, patchHandModel, unbindOfficialHandModel } from "@/lib/screen-api/hand-models";
 import { showScreenError } from "@/lib/screen-http";
@@ -50,10 +50,25 @@ const ASSETS = {
   back: "/static/scan/back.svg",
 };
 
+const TOAST_MS = 1000;
+
 const handId = ref("");
 const item = ref<HandItem | null>(null);
 const editing = ref(false);
 const draft = ref("");
+const acting = ref(false);
+
+function showToast(ok: boolean, title: string) {
+  if (ok) {
+    (uni as any).$toast.success(title, undefined, TOAST_MS);
+  } else {
+    (uni as any).$toast.error(title, undefined, TOAST_MS);
+  }
+}
+
+function backToHandLibrary() {
+  setTimeout(() => goBackOr(ADMIN_PAGES.hand), TOAST_MS);
+}
 
 onLoad((query?: Record<string, string>) => {
   handId.value = query?.id || "";
@@ -73,10 +88,7 @@ async function loadHand() {
   }
   try {
     const list = await fetchHandModels();
-    const mapped = [
-      ...(list.official || []).map((row) => toHandItem(row, true)),
-      ...(list.custom || []).map((row) => toHandItem(row, false)),
-    ];
+    const mapped = toSortedHandItems(list);
     cacheHands(mapped);
     item.value = findHand(handId.value) ?? null;
     draft.value = item.value?.name || "";
@@ -98,27 +110,31 @@ function onDelete() {
   (uni as any).$modal.load("确认删除", "确定删除该商品？操作不可逆。", "删除",  0, 200000);
 }
 
-const handleDelete = async() => {
-	const current = item.value;
-	(uni as any).$modal.hide();
-	try {
-	   if (current?.official) {
-	     await unbindOfficialHandModel(current.id);
-	   } else {
-	     await deleteCustomHandModel(current?.id);
-	   }
-	    (uni as any).$toast.success("删除成功", undefined, 1000);
-	   
-	 } catch (error) {
-		(uni as any).$toast.error("删除失败", undefined, 1000);
-	 } finally {
-		 setTimeout(() => { goBackOr(ADMIN_PAGES.hand); }, 1000)
-	 }
-}
+const handleDelete = async () => {
+  const current = item.value;
+  (uni as any).$modal.hide();
+  if (!current || acting.value) {
+    return;
+  }
+  acting.value = true;
+  try {
+    if (current.official) {
+      await unbindOfficialHandModel(current.id);
+    } else {
+      await deleteCustomHandModel(current.id);
+    }
+    showToast(true, "删除成功");
+    backToHandLibrary();
+  } catch {
+    showToast(false, "删除失败");
+  } finally {
+    acting.value = false;
+  }
+};
 
 async function onEdit() {
   const current = item.value;
-  if (!current) {
+  if (!current || acting.value) {
     return;
   }
   if (!editing.value) {
@@ -128,20 +144,28 @@ async function onEdit() {
   }
   const name = draft.value.trim();
   if (!name) {
-    uni.showToast({ title: "请输入手模名称", icon: "none" });
+    showToast(false, "请输入手模名称");
     return;
   }
-  	// (uni as any).$modal.load("重新上传", "重新上传将会清空现有照片，是否继续？试试再多文字会不会换行", "重新上传",  0, 200000);
+  acting.value = true;
   try {
     const updated = await patchHandModel(current.id, name);
-    item.value = {
+    const next = {
       ...current,
       name: updated.displayName || name,
     };
+    item.value = next;
+    const cached = findHand(current.id);
+    if (cached) {
+      cached.name = next.name;
+    }
     editing.value = false;
-	(uni as any).$toast.success("保存成功", undefined, 1000);
-  } catch (error) {
-    (uni as any).$toast.error("保存失败", undefined, 1000);
+    showToast(true, "保存成功");
+    backToHandLibrary();
+  } catch {
+    showToast(false, "保存失败");
+  } finally {
+    acting.value = false;
   }
 }
 </script>

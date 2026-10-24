@@ -5,8 +5,8 @@
       <view class="fx-hero__bar">
         <kiosk-chip :icon="ASSETS.back" variant="shade" label="返回" @click="onBack" />
       </view>
-      <view class="fx-save">
-        <image class="fx-save__qr" :src="ASSETS.saveQr" mode="aspectFit" />
+      <view class="fx-save" hover-class="none" @click="openSave()">
+        <image class="fx-save__qr" :src="saveQrSrc" :fade-show="true" mode="aspectFit" />
         <text>扫码保存</text>
       </view>
       <view v-if="look.id" class="fx-buy" hover-class="none" @click="onBuy">
@@ -16,7 +16,7 @@
       </view>
       <view class="fx-compare" hover-class="none" @click="onCompare">
         <image class="fx-compare__icon" :src="ASSETS.compare" mode="aspectFit" />
-        <text>穿搭对比</text>
+        <text>试戴对比</text>
       </view>
     </view>
 
@@ -48,28 +48,31 @@
       </view>
     </view>
 
-    <view v-if="showHomeConfirm" class="fx-mask" hover-class="none" @click="closeHomeConfirm">
-      <view class="fx-dialog" @click.stop>
-        <text class="fx-dialog__title">返回现有照片将被清除，是否继续？</text>
-        <view class="fx-dialog__qr">
-          <image class="fx-dialog__code" :src="ASSETS.saveQr" mode="aspectFit" />
-          <image class="fx-dialog__corner fx-dialog__corner--tr" :src="ASSETS.cornerTr" mode="aspectFit" />
-          <image class="fx-dialog__corner fx-dialog__corner--tl" :src="ASSETS.cornerTl" mode="aspectFit" />
-          <image class="fx-dialog__corner fx-dialog__corner--bl" :src="ASSETS.cornerTl" mode="aspectFit" />
-          <image class="fx-dialog__corner fx-dialog__corner--br" :src="ASSETS.cornerTr" mode="aspectFit" />
+    <view v-if="showSave" class="fx-mask" hover-class="none" @click="closeSave">
+      <view class="fx-save-pop" @click.stop>
+        <view class="fx-save-pop__frame">
+          <image class="fx-save-pop__code" :src="saveQrSrc" mode="aspectFit" />
+          <view class="fx-save-pop__c fx-save-pop__c--tl" />
+          <view class="fx-save-pop__c fx-save-pop__c--tr" />
+          <view class="fx-save-pop__c fx-save-pop__c--bl" />
+          <view class="fx-save-pop__c fx-save-pop__c--br" />
         </view>
-        <text class="fx-dialog__hint">扫一扫二维码，保存图片至手机</text>
-        <view class="fx-dialog__actions">
-          <view class="fx-dialog__cancel" hover-class="none" @click="closeHomeConfirm">
-            <text>取消</text>
-          </view>
-          <view class="fx-dialog__ok" hover-class="none" @click="onHome">
-            <image class="fx-dialog__home" :src="ASSETS.home" mode="aspectFit" />
-            <text>返回首页</text>
-          </view>
+        <text class="fx-save-pop__hint">扫一扫二维码，保存图片至手机</text>
+        <view class="fx-save-pop__close" hover-class="none" @click="closeSave">
+          <text>关闭</text>
         </view>
       </view>
     </view>
+
+    <kiosk-image-compare
+      v-if="showCompare"
+      :before="compareBefore"
+      :after="compareAfter"
+      @close="showCompare = false"
+    />
+
+  <KioskResultModal @gohome="onHome" @reGeneratge="handleReGenerate" />
+  
   </view>
 </template>
 
@@ -77,9 +80,12 @@
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
+import KioskImageCompare from "@/components/kiosk/kiosk-image-compare.vue";
 import {
+  readTryOnImageUrl,
   readTryOnLookId,
   readTryOnResult,
+  readTryOnTaskId,
   resolveLook,
   toKioskHands,
   writeTryOnHandId,
@@ -87,8 +93,13 @@ import {
   type HandModel,
 } from "@/data/try-on";
 import { fetchHandModels } from "@/lib/screen-api/hand-models";
+import { shareTryOnResult } from "@/lib/screen-api/experiences";
 import { KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
 import { showScreenError } from "@/lib/screen-http";
+import { qrImageUrl } from "@/lib/scan-session";
+import { trackTryonSubmit } from "@/lib/track-events";
+import { readPreview } from "@/lib/upload-flow";
+import KioskResultModal from "@/components/kiosk/kiosk-result-modal.vue";
 
 const ASSETS = {
   back: "/static/results/back-white.svg",
@@ -106,9 +117,15 @@ const hero = ref(readTryOnResult());
 const hands = ref<HandModel[]>([]);
 const pickedId = ref("");
 const showHomeConfirm = ref(false);
+const showSave = ref(false);
+const showCompare = ref(false);
+const compareBefore = ref("");
+const compareAfter = ref("");
+const saveQrSrc = ref("");
 
 onShow(() => {
   hero.value = readTryOnResult();
+  openSave(1);
   loadHands();
 });
 
@@ -120,8 +137,16 @@ async function loadHands() {
   }
 }
 
-function onBack() {
-  goBackOr(KIOSK_PAGES.tryOn);
+async function onBack() {
+  // goBackOr(KIOSK_PAGES.tryOn);
+  try {
+	  await openSave(1)
+	  if (saveQrSrc.value.length > 0) {
+		  (uni as any).$ResultModal.load("返回现有照片将被清除，是否继续？", "", "返回首页",  0, 200000, saveQrSrc.value)
+	  }
+  } catch (err) {
+	  
+  }
 }
 
 function onBuy() {
@@ -132,11 +157,46 @@ function onBuy() {
 }
 
 function onCompare() {
-  uni.showToast({ title: "暂不支持穿搭对比", icon: "none" });
+  const before = readTryOnImageUrl() || readPreview("hand-model");
+  const after = hero.value;
+  if (!before) {
+    uni.showToast({ title: "请先选择或上传手模图", icon: "none" });
+    return;
+  }
+  if (!after) {
+    uni.showToast({ title: "暂无试戴效果", icon: "none" });
+    return;
+  }
+  compareBefore.value = before;
+  compareAfter.value = after;
+  showCompare.value = true;
+}
+
+async function openSave(val?: any) {
+  const taskId = readTryOnTaskId().trim();
+  if (!taskId) {
+    uni.showToast({ title: "暂无试戴结果", icon: "none" });
+    return;
+  }
+  try {
+    const issued = await shareTryOnResult(taskId);
+    if (!issued.h5Url) {
+      uni.showToast({ title: "保存链接生成失败", icon: "none" });
+      return;
+    }
+    saveQrSrc.value = await qrImageUrl(issued.h5Url, 640);
+    if (!val) showSave.value = true;
+  } catch (error) {
+    showScreenError(error, "保存链接生成失败");
+  }
+}
+
+function closeSave() {
+  showSave.value = false;
 }
 
 function askHome() {
-  showHomeConfirm.value = true;
+	(uni as any).$ResultModal.load("返回现有照片将被清除，是否继续？", "", "返回首页",  0, 200000, saveQrSrc.value)
 }
 
 function closeHomeConfirm() {
@@ -148,18 +208,24 @@ function onHome() {
 }
 
 function onRegen() {
-  if (!pickedId.value) {
-    return;
-  }
-  const image = hands.value.find((item) => item.id === pickedId.value)?.image;
-  if (!image) {
-    return;
-  }
-  writeTryOnHandId(pickedId.value);
-  writeTryOnImageUrl(image);
-  uni.redirectTo({
-    url: `${KIOSK_PAGES.tryOnWait}?next=${encodeURIComponent(KIOSK_PAGES.tryOnResult)}`,
-  });
+	if (!pickedId.value) {
+	  return;
+	}
+	const image = hands.value.find((item) => item.id === pickedId.value)?.image;
+	if (!image) {
+	  return;
+	}
+  (uni as any).$ResultModal.load("再次生成现有照片将被清除，是否继续？", "", "再次生成",  1, 200000, saveQrSrc.value);
+}
+
+const handleReGenerate = () => {
+	const image = hands.value.find((item) => item.id === pickedId.value)?.image;
+	trackTryonSubmit();
+	writeTryOnHandId(pickedId.value);
+	writeTryOnImageUrl(image);
+	uni.redirectTo({
+		url: `${KIOSK_PAGES.tryOnWait}?next=${encodeURIComponent(KIOSK_PAGES.tryOnResult)}`,
+	});
 }
 </script>
 
@@ -513,5 +579,92 @@ page {
   height: calc(32 * var(--u));
   flex-shrink: 0;
   filter: brightness(0) invert(1);
+}
+
+.fx-save-pop {
+  width: calc(640 * var(--u));
+  background: #fff;
+  border-radius: calc(48 * var(--u));
+  padding: calc(48 * var(--u)) calc(48 * var(--u)) calc(40 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.fx-save-pop__frame {
+  position: relative;
+  width: calc(460 * var(--u));
+  height: calc(460 * var(--u));
+}
+
+.fx-save-pop__code {
+  position: absolute;
+  left: calc(28 * var(--u));
+  top: calc(28 * var(--u));
+  width: calc(404 * var(--u));
+  height: calc(404 * var(--u));
+  background: #fff;
+}
+
+.fx-save-pop__c {
+  position: absolute;
+  width: calc(96 * var(--u));
+  height: calc(96 * var(--u));
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: #191919;
+  pointer-events: none;
+}
+
+.fx-save-pop__c--tl {
+  top: 0;
+  left: 0;
+  border-width: calc(4 * var(--u)) 0 0 calc(4 * var(--u));
+  border-top-left-radius: calc(40 * var(--u));
+}
+
+.fx-save-pop__c--tr {
+  top: 0;
+  right: 0;
+  border-width: calc(4 * var(--u)) calc(4 * var(--u)) 0 0;
+  border-top-right-radius: calc(40 * var(--u));
+}
+
+.fx-save-pop__c--bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 calc(4 * var(--u)) calc(4 * var(--u));
+  border-bottom-left-radius: calc(40 * var(--u));
+}
+
+.fx-save-pop__c--br {
+  right: 0;
+  bottom: 0;
+  border-width: 0 calc(4 * var(--u)) calc(4 * var(--u)) 0;
+  border-bottom-right-radius: calc(40 * var(--u));
+}
+
+.fx-save-pop__hint {
+  margin-top: calc(28 * var(--u));
+  font-size: calc(32 * var(--u));
+  font-weight: 400;
+  color: #333;
+  text-align: center;
+}
+
+.fx-save-pop__close {
+  margin-top: calc(36 * var(--u));
+  width: 100%;
+  height: calc(96 * var(--u));
+  border-radius: calc(48 * var(--u));
+  background: #191919;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(32 * var(--u));
+  font-weight: 500;
+  color: #fff;
+  box-sizing: border-box;
 }
 </style>

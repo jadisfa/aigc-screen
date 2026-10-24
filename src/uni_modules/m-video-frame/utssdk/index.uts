@@ -1,0 +1,7 @@
+import { ExtractVideoFrameOptions, ExtractVideoFrameResult } from './interface.uts'
+import { createErrorObject } from './unierror.uts'
+
+/** 默认（非 App）实现：不支持。 */
+export async function extractVideoFrame(_options: ExtractVideoFrameOptions): Promise<ExtractVideoFrameResult> {
+  throw createErrorObject(9030005)
+}

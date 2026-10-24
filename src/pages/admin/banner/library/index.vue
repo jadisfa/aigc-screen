@@ -35,30 +35,19 @@
         :key="poster.id"
         class="lib-card"
         hover-class="none"
-        @click="picked = poster"
+        @click="openDetail(poster)"
       >
-        <image class="lib-card__shot" :src="poster.image" mode="aspectFill" />
+        <banner-shot
+          class="lib-card__shot"
+          :kind="poster.kind"
+          :src="poster.images[0]?.src || poster.image"
+          :cover="poster.images[0]?.cover || ''"
+        />
         <view v-if="poster.badge" class="lib-card__badge" :class="{ 'is-listed': poster.badge === 'listed' }">
           <text>{{ badgeText(poster.badge) }}</text>
         </view>
         <text class="lib-card__title">{{ poster.title }}</text>
       </view>
-    </view>
-
-    <view v-if="picked" class="lib-mask" hover-class="none" @click="picked = null">
-      <view class="lib-preview" @click.stop>
-        <image class="lib-preview__shot" :src="picked.image" mode="aspectFill" />
-        <view v-if="picked.badge" class="lib-preview__badge" :class="{ 'is-listed': picked.badge === 'listed' }">
-          <text>{{ badgeText(picked.badge) }}</text>
-        </view>
-      </view>
-      <view class="lib-preview__btn lib-preview__btn--dark" hover-class="none" @click.stop="onStore">
-        <text>存入我的图库</text>
-      </view>
-      <view class="lib-preview__btn lib-preview__btn--light" hover-class="none" @click.stop="onListNow">
-        <text>立即上架</text>
-      </view>
-      <image class="lib-preview__close" :src="ASSETS.close" mode="aspectFit" @click.stop="picked = null" />
     </view>
   </view>
 </template>
@@ -67,6 +56,7 @@
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
+import BannerShot from "@/components/admin/banner-shot.vue";
 import {
   badgeText,
   toLibraryPoster,
@@ -74,13 +64,12 @@ import {
   type LibraryPoster,
 } from "@/data/admin";
 import { ADMIN_PAGES, goBackOr } from "@/lib/kiosk-routes";
-import { bindOfficialBanner, fetchDeviceBanners, fetchOfficialBanners } from "@/lib/screen-api/banners";
+import { fetchOfficialBanners, fetchBannerCatalog, bannerCatalogLibraryMarks } from "@/lib/screen-api/banners";
 import { showScreenError } from "@/lib/screen-http";
 
 const ASSETS = {
   back: "/static/scan/back.svg",
   search: "/static/admin/search.svg",
-  close: "/static/tryon/close.svg",
 };
 
 const TABS: { id: BannerTab; label: string }[] = [
@@ -92,7 +81,6 @@ const TABS: { id: BannerTab; label: string }[] = [
 const posters = ref<LibraryPoster[]>([]);
 const kindTab = ref<BannerTab>("all");
 const keyword = ref("");
-const picked = ref<LibraryPoster | null>(null);
 
 const filtered = computed(() => {
   const q = keyword.value.trim();
@@ -110,19 +98,9 @@ onShow(() => {
 
 async function loadLibrary() {
   try {
-    const [official, device] = await Promise.all([fetchOfficialBanners(), fetchDeviceBanners()]);
-    const deviceLibraryIds = new Set(
-      (device || []).map((row) => row.libraryId).filter((id): id is string => Boolean(id)),
-    );
-    const listedLibraryIds = new Set(
-      (device || [])
-        .filter((row) => row.openDeviceConfig === "yes" && row.libraryId)
-        .map((row) => row.libraryId as string),
-    );
+    const [official, catalog] = await Promise.all([fetchOfficialBanners(), fetchBannerCatalog()]);
+    const { stored: deviceLibraryIds, listed: listedLibraryIds } = bannerCatalogLibraryMarks(catalog);
     posters.value = (official || []).map((row) => toLibraryPoster(row, deviceLibraryIds, listedLibraryIds));
-    if (picked.value) {
-      picked.value = posters.value.find((row) => row.id === picked.value?.id) ?? null;
-    }
   } catch (error) {
     showScreenError(error, "图库加载失败");
   }
@@ -132,34 +110,13 @@ function onBack() {
   goBackOr(ADMIN_PAGES.banner);
 }
 
-async function onStore() {
-  const current = picked.value;
-  if (!current) {
+function openDetail(poster: LibraryPoster) {
+  if (!poster.id) {
     return;
   }
-  try {
-    await bindOfficialBanner(current.id, "no");
-    uni.showToast({ title: "已存入图库", icon: "none" });
-    picked.value = null;
-    await loadLibrary();
-  } catch (error) {
-    showScreenError(error, "存入失败");
-  }
-}
-
-async function onListNow() {
-  const current = picked.value;
-  if (!current) {
-    return;
-  }
-  try {
-    await bindOfficialBanner(current.id, "yes");
-    uni.showToast({ title: "已上架", icon: "none" });
-    picked.value = null;
-    await loadLibrary();
-  } catch (error) {
-    showScreenError(error, "上架失败");
-  }
+  uni.navigateTo({
+    url: `${ADMIN_PAGES.bannerLibraryDetail}?id=${encodeURIComponent(poster.id)}`,
+  });
 }
 </script>
 
@@ -283,75 +240,5 @@ page {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.lib-mask {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 20;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: calc(214 * var(--u));
-  overflow-y: auto;
-}
-
-.lib-preview {
-  position: relative;
-  width: calc(648 * var(--u));
-}
-
-.lib-preview__shot {
-  width: calc(648 * var(--u));
-  height: calc(979 * var(--u));
-  border-radius: calc(24 * var(--u));
-}
-
-.lib-preview__badge {
-  position: absolute;
-  right: calc(20 * var(--u));
-  top: calc(20 * var(--u));
-  padding: calc(12 * var(--u)) calc(16 * var(--u));
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: calc(12 * var(--u));
-  font-size: calc(16 * var(--u));
-  font-weight: 500;
-  color: #fff;
-}
-
-.lib-preview__badge.is-listed {
-  background: #0f1010;
-}
-
-.lib-preview__btn {
-  margin-top: calc(24 * var(--u));
-  width: calc(480 * var(--u));
-  height: calc(100 * var(--u));
-  border-radius: calc(60 * var(--u));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(32 * var(--u));
-  font-weight: 500;
-}
-
-.lib-preview__btn--dark {
-  background: #191919;
-  color: #fff;
-}
-
-.lib-preview__btn--light {
-  background: #fff;
-  color: #333;
-}
-
-.lib-preview__close {
-  margin-top: calc(24 * var(--u));
-  width: calc(60 * var(--u));
-  height: calc(60 * var(--u));
 }
 </style>

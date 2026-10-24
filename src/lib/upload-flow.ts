@@ -104,6 +104,40 @@ export function cameraUrl(intent: UploadIntent) {
 
 export const OUTFIT_UPLOAD_ID_KEY = "kiosk.outfitUploadId";
 
+const previewMemory = new Map<UploadIntent, string>();
+let cameraHandoff: { intent: UploadIntent; path: string } | null = null;
+
+let cameraEntered = false;
+
+/** 相机页已经打开。上传页据此判断还在拍摄，不再轮询扫码状态。 */
+export function markCameraEntered() {
+  cameraEntered = true;
+}
+
+export function consumeCameraEntered() {
+  const entered = cameraEntered;
+  cameraEntered = false;
+  return entered;
+}
+
+/** 相机确认后的本地照片。回到上传页再写入预览，不经过扫码会话。 */
+export function markCameraHandoff(intent: UploadIntent, path: string) {
+  cameraHandoff = path ? { intent, path } : null;
+}
+
+export function hasCameraHandoff(intent: UploadIntent) {
+  return cameraHandoff?.intent === intent && Boolean(cameraHandoff.path);
+}
+
+export function takeCameraHandoff(intent: UploadIntent) {
+  if (!hasCameraHandoff(intent) || !cameraHandoff) {
+    return "";
+  }
+  const path = cameraHandoff.path;
+  cameraHandoff = null;
+  return path;
+}
+
 export function generatingUrl(next = KIOSK_PAGES.results) {
   return `${KIOSK_PAGES.generating}?next=${encodeURIComponent(next)}`;
 }
@@ -121,15 +155,33 @@ export function clearOutfitUploadId() {
 }
 
 export function readPreview(intent: UploadIntent) {
+  const cached = previewMemory.get(intent);
+  if (cached) {
+    return cached;
+  }
   return (uni.getStorageSync(UPLOAD_FLOWS[intent].previewKey) || "") as string;
 }
 
 export function writePreview(intent: UploadIntent, path: string) {
-  uni.setStorageSync(UPLOAD_FLOWS[intent].previewKey, path);
+  if (!path) {
+    clearPreview(intent);
+    return;
+  }
+  previewMemory.set(intent, path);
+  try {
+    uni.setStorageSync(UPLOAD_FLOWS[intent].previewKey, path);
+  } catch (error) {
+    console.error("[upload] 预览写入本地缓存失败", error);
+  }
 }
 
 export function clearPreview(intent: UploadIntent) {
-  uni.removeStorageSync(UPLOAD_FLOWS[intent].previewKey);
+  previewMemory.delete(intent);
+  try {
+    uni.removeStorageSync(UPLOAD_FLOWS[intent].previewKey);
+  } catch {
+    /* 缓存里没有这张预览 */
+  }
 }
 
 /** 放弃本次未确认的上传（新顾客 / 点返回）。穿搭与灵感共用 outfitUploadId。 */

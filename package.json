@@ -1,7 +1,7 @@
 {
   "name": "frontend-store-screen-uniapp",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.2",
   "scripts": {
     "dev": "uni",
     "dev:app": "uni -p app",
@@ -70,6 +70,7 @@
     "@dcloudio/uni-automator": "3.0.0-5020420260813003",
     "@dcloudio/uni-cli-shared": "3.0.0-5020420260813003",
     "@dcloudio/uni-stacktracey": "3.0.0-5020420260813003",
+    "@dcloudio/uni-uts-v1": "^3.0.0-5020420260813003",
     "@dcloudio/vite-plugin-uni": "3.0.0-5020420260813003",
     "@vue/runtime-core": "^3.4.21",
     "@vue/tsconfig": "^0.1.3",

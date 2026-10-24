@@ -8,7 +8,7 @@
       <image class="hub-points__blob" :src="ASSETS.blob" mode="aspectFit" />
       <image class="hub-points__dot" :src="ASSETS.dot" mode="aspectFit" />
       <image class="hub-points__nail" :src="ASSETS.nail" mode="aspectFit" />
-	  <text class="hub-points__storeName">奈杜美甲-三孝口店</text>
+	  <text class="hub-points__storeName">{{ storeName }}</text>
       <view class="hub-points__copy">
         <text class="hub-points__label">当前余额</text>
         <text class="hub-points__num">{{ balanceText }}</text>
@@ -34,8 +34,10 @@ import { onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
 import { ADMIN_TILES, type AdminTileAction } from "@/data/admin";
+import { ensureStore, resolveStoreName } from "@/data/store";
+import { discardMismatchedDevice } from "@/lib/device-auth";
 import { ADMIN_PAGES, KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
-import { checkOtaUpdate } from "@/lib/ota-upgrade";
+import { peekOtaSnapshot } from "@/lib/ota-upgrade";
 import { fetchScreenAccount } from "@/lib/screen-api/me";
 import { showScreenError } from "@/lib/screen-http";
 
@@ -49,11 +51,20 @@ const ASSETS = {
 const balanceText = ref("--");
 const hasUpdate = ref(false);
 const updateBadge = ref("有新版本");
+discardMismatchedDevice();
+const storeName = ref(resolveStoreName());
 
 onShow(() => {
+  storeName.value = resolveStoreName();
+  void loadStoreName();
   loadAccount();
   loadUpdateBadge();
 });
+
+async function loadStoreName() {
+  const store = await ensureStore();
+  storeName.value = resolveStoreName(store?.name);
+}
 
 async function loadAccount() {
   try {
@@ -64,14 +75,10 @@ async function loadAccount() {
   }
 }
 
-async function loadUpdateBadge() {
-  try {
-    const result = await checkOtaUpdate(true);
-    hasUpdate.value = result.hasUpdate;
-    updateBadge.value = result.kind === "force" ? "需更新" : "有新版本";
-  } catch {
-    hasUpdate.value = false;
-  }
+function loadUpdateBadge() {
+  const result = peekOtaSnapshot();
+  hasUpdate.value = Boolean(result?.hasUpdate);
+  updateBadge.value = result?.kind === "force" ? "需更新" : "有新版本";
 }
 
 function formatStoreBalance(amount: number | string | null | undefined, currency?: string) {

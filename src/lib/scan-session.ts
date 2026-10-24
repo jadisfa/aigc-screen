@@ -30,16 +30,17 @@ export function isPollAborted(error: unknown): boolean {
   return error instanceof PollAbortedError;
 }
 
-export async function qrImageUrl(payload: string): Promise<string> {
+export async function qrImageUrl(payload: string, width = 400): Promise<string> {
+  const size = width > 0 ? width : 400;
   try {
     return await qrToDataUrl(payload, {
-      width: 400,
+      width: size,
       margin: 1,
       errorCorrectionLevel: "M",
       color: { dark: "#191919", light: "#ffffff" },
     });
   } catch {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=528x528&data=${encodeURIComponent(payload)}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
   }
 }
 
@@ -98,10 +99,13 @@ export async function pollUntilTerminal(
   let deadlineMs = (parseScanExpiresAtMs(options?.expiresAt) ?? Date.now() + FALLBACK_POLL_MS) + EXPIRE_GRACE_MS;
 
   while (true) {
-    if (options?.shouldContinue && !options.shouldContinue()) {
+    if (stopped(options?.shouldContinue)) {
       throw new PollAbortedError();
     }
     const session = await poll();
+    if (stopped(options?.shouldContinue)) {
+      throw new PollAbortedError();
+    }
     options?.onTick?.(session);
     const sessionExpireMs = parseScanExpiresAtMs(session.expireAt);
     if (sessionExpireMs != null) {
@@ -111,7 +115,13 @@ export async function pollUntilTerminal(
       return session;
     }
     if (Date.now() >= deadlineMs) {
+      if (stopped(options?.shouldContinue)) {
+        throw new PollAbortedError();
+      }
       const last = await poll();
+      if (stopped(options?.shouldContinue)) {
+        throw new PollAbortedError();
+      }
       options?.onTick?.(last);
       if (isTerminalScanStatus(last.status)) {
         return last;
@@ -119,7 +129,24 @@ export async function pollUntilTerminal(
       // 极端时钟偏差：仍不主动 cancel，仅按过期展示，由用户点「重新扫码」
       return { ...last, status: "expired" };
     }
-    await sleep(intervalMs);
+    await sleepUntil(intervalMs, options?.shouldContinue);
+  }
+}
+
+function stopped(shouldContinue?: () => boolean) {
+  return Boolean(shouldContinue && !shouldContinue());
+}
+
+async function sleepUntil(ms: number, shouldContinue?: () => boolean) {
+  const step = 50;
+  let elapsed = 0;
+  while (elapsed < ms) {
+    if (stopped(shouldContinue)) {
+      throw new PollAbortedError();
+    }
+    const slice = Math.min(step, ms - elapsed);
+    await sleep(slice);
+    elapsed += slice;
   }
 }
 
@@ -134,9 +161,16 @@ export type ScanTransport = {
 };
 
 export function scanTransport(intent: UploadIntent): ScanTransport {
-  if (intent === "hand-model" || intent === "hand-admin") {
+  if (intent === "hand-admin") {
     return {
-      issue: issueHandModelUpload,
+      issue: () => issueHandModelUpload(true),
+      poll: pollHandModelUpload,
+      cancel: cancelHandModelUpload,
+    };
+  }
+  if (intent === "hand-model") {
+    return {
+      issue: () => issueHandModelUpload(false),
       poll: pollHandModelUpload,
       cancel: cancelHandModelUpload,
     };

@@ -6,6 +6,7 @@ export type ScreenHandModel = {
   displayName?: string;
   assetUrl?: string;
   previewUrl?: string;
+  sortNo?: number | null;
 };
 
 export type ScreenHandModelList = {
@@ -43,6 +44,14 @@ export function patchHandModel(configId: string, displayName: string) {
     ...admin,
     method: "PATCH",
     data: { displayName },
+  });
+}
+
+export function sortHandModels(configIds: string[]) {
+  return screenRequest<void>("/api/screen/hand-models/sort", {
+    ...admin,
+    method: "PUT",
+    data: { configIds },
   });
 }
 

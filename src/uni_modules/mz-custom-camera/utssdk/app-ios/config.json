@@ -1,0 +1,13 @@
+{
+	"frameworks": [
+		"AVFoundation.framework",
+		"UIKit.framework",
+		"Foundation.framework",
+		"CoreMedia.framework",
+		"CoreVideo.framework"
+	],
+	"deploymentTarget": "12.0",
+	"validArchitectures": [
+		"arm64"
+	]
+}

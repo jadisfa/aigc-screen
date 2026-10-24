@@ -1,0 +1,408 @@
+<!--
+  示例：原生预览 + 业务 UI（返回 / 快门 / 相册 / 历史）
+  需自定义基座包含 mz-custom-camera
+-->
+<template>
+	<div class="page">
+		<mz-custom-camera
+			ref="camera"
+			class="preview"
+			device-position="back"
+			flash-mode="off"
+			:auto-preview="false"
+			@ready="onReady"
+			@error="onError"
+			@capture="onCapture"
+		></mz-custom-camera>
+
+		<div class="nav" @click="goBack">
+			<text class="nav-text">‹</text>
+		</div>
+
+		<div class="controls">
+			<div class="shutter" @click="onShutter"></div>
+			<div class="actions">
+				<div class="action" @click="onAlbum">
+					<text class="action-text">相册</text>
+				</div>
+				<div class="action-spacer"></div>
+				<div class="action" @click="openHistory">
+					<text class="action-text">历史</text>
+				</div>
+			</div>
+		</div>
+
+		<div v-if="historyVisible" class="history-mask" @click="closeHistory">
+			<div class="history-panel" :style="{ paddingBottom: (safeBottom + 40) + 'px' }" @click="noop">
+				<div class="history-header">
+					<text class="history-title">我拍过的</text>
+					<text class="history-close" @click="closeHistory">关闭</text>
+				</div>
+				<div v-if="historyList.length === 0" class="history-empty">
+					<text class="history-empty-text">暂无历史图片</text>
+				</div>
+				<scroller
+					v-if="historyList.length > 0"
+					class="history-scroll"
+					scroll-direction="horizontal"
+					show-scrollbar="false"
+				>
+					<div
+						v-for="(item, index) in historyList"
+						:key="index"
+						class="history-item"
+						@click="onPickHistory(item)"
+					>
+						<image class="history-img" :src="toLocalImageSrc(item.path)" mode="aspectFill"></image>
+					</div>
+				</scroller>
+			</div>
+		</div>
+	</div>
+</template>
+
+<script>
+	import {
+		getPhotoSearchHistory,
+		pushPhotoSearchHistory,
+		removePhotoSearchHistory,
+		toLocalImageSrc
+	} from '@/utils/photoSearchHistory.js'
+	import {
+		checkCameraPermission,
+		isCameraAvailable,
+		takeCameraPhoto
+	} from '@/uni_modules/mz-custom-camera'
+
+	function unwrapCameraEvent(e) {
+		const d = (e && e.detail) || e || {}
+		return d.detail || d
+	}
+
+	function mapCameraError(payload) {
+		const code = (payload && (payload.code || payload.errCode)) || ''
+		const msg = (payload && payload.message) || ''
+		if (code === 'NO_PERMISSION' || code === 9101001) return '需要相机权限'
+		if (code === 'NO_LIFECYCLE') return '页面生命周期异常'
+		if (code === 'BIND_FAILED') return msg || '相机启动失败'
+		if (code === 'NOT_READY') return '相机未就绪'
+		if (code === 'CAPTURE_FAILED') return msg || '拍照失败'
+		if (code === 'NO_ACTIVITY') return '相机视图未就绪'
+		return msg || ('相机错误' + (code ? ('(' + code + ')') : ''))
+	}
+
+	export default {
+		data() {
+			return {
+				ready: false,
+				historyVisible: false,
+				historyList: [],
+				finishing: false,
+				safeBottom: 0,
+				permissionGranted: false
+			}
+		},
+		onLoad() {
+			try {
+				const sys = uni.getSystemInfoSync()
+				const inset = (sys.safeAreaInsets && sys.safeAreaInsets.bottom) || 0
+				this.safeBottom = inset > 0 ? inset : 0
+			} catch (e) {
+				this.safeBottom = 0
+			}
+			const avail = isCameraAvailable()
+			console.log('[mz-camera-demo] isCameraAvailable', avail)
+			if (!avail || !avail.available) {
+				uni.showToast({ title: '设备无可用摄像头', icon: 'none' })
+			}
+			this.requestPermissionAndStart()
+		},
+		methods: {
+			toLocalImageSrc,
+			noop() {},
+			requestPermissionAndStart() {
+				checkCameraPermission({
+					request: true,
+					success: (res) => {
+						console.log('[mz-camera-demo] permission', res)
+						this.permissionGranted = !!(res && res.granted)
+						if (!this.permissionGranted) {
+							uni.showToast({ title: '需要相机权限', icon: 'none' })
+							return
+						}
+						this.startPreviewSafe()
+					},
+					fail: (err) => {
+						console.warn('[mz-camera-demo] permission fail', err)
+						uni.showToast({ title: '需要相机权限', icon: 'none' })
+					}
+				})
+			},
+			startPreviewSafe() {
+				const tryStart = () => {
+					const cam = this.$refs.camera
+					if (cam && typeof cam.startPreview === 'function') {
+						cam.startPreview()
+						return true
+					}
+					return false
+				}
+				if (tryStart()) return
+				setTimeout(() => {
+					if (!tryStart()) {
+						uni.showToast({ title: '相机组件未就绪', icon: 'none' })
+					}
+				}, 200)
+			},
+			goBack() {
+				uni.navigateBack()
+			},
+			onReady() {
+				this.ready = true
+			},
+			onError(e) {
+				const payload = unwrapCameraEvent(e)
+				console.warn('[mz-camera-demo] camera error', e, payload)
+				uni.showToast({ title: mapCameraError(payload), icon: 'none' })
+			},
+			onCapture(e) {
+				const d = unwrapCameraEvent(e)
+				const path = d.path || ''
+				if (!path) {
+					console.warn('[mz-camera-demo] capture empty path', e)
+					uni.showToast({ title: '拍照失败', icon: 'none' })
+					return
+				}
+				this.finishWithPath(path)
+			},
+			onShutter() {
+				if (!this.ready || this.finishing) return
+				const cam = this.$refs.camera
+				// Vue2：$refs.takePhoto；Vue3：常无效 → takeCameraPhoto({ success })
+				if (cam && typeof cam.takePhoto === 'function') {
+					cam.takePhoto()
+					return
+				}
+				if (cam && typeof cam.$callMethod === 'function') {
+					try {
+						cam.$callMethod('takePhoto')
+						return
+					} catch (e) {
+						console.warn('[mz-camera-demo] $callMethod takePhoto failed', e)
+					}
+				}
+				const ok = takeCameraPhoto({
+					success: (res) => {
+						if (res && res.path) this.finishWithPath(res.path)
+					},
+					fail: (err) => {
+						uni.showToast({
+							title: (err && err.errMsg) || '拍照失败',
+							icon: 'none'
+						})
+					}
+				})
+				if (!ok) {
+					uni.showToast({ title: '相机未就绪', icon: 'none' })
+				}
+			},
+			onAlbum() {
+				if (this.finishing) return
+				uni.chooseImage({
+					count: 1,
+					sourceType: ['album'],
+					success: (res) => {
+						const path = res.tempFilePaths && res.tempFilePaths[0]
+						if (!path) {
+							uni.showToast({ title: '选图失败', icon: 'none' })
+							return
+						}
+						this.finishWithPath(path)
+					},
+					fail: () => {
+						uni.showToast({ title: '选图失败', icon: 'none' })
+					}
+				})
+			},
+			openHistory() {
+				this.historyList = getPhotoSearchHistory().slice()
+				this.historyVisible = true
+			},
+			closeHistory() {
+				this.historyVisible = false
+			},
+			onPickHistory(item) {
+				if (!item || !item.path || this.finishing) return
+				const src = toLocalImageSrc(item.path)
+				uni.getImageInfo({
+					src,
+					success: () => {
+						this.finishWithPath(item.path)
+					},
+					fail: () => {
+						removePhotoSearchHistory(item.path)
+						this.historyList = getPhotoSearchHistory().slice()
+						uni.showToast({ title: '图片已失效', icon: 'none' })
+					}
+				})
+			},
+			finishWithPath(path) {
+				if (this.finishing) return
+				this.finishing = true
+				pushPhotoSearchHistory(path)
+				uni.navigateTo({
+					url: '/pages/camera/preview?path=' + encodeURIComponent(path),
+					fail: () => {
+						this.finishing = false
+						uni.showToast({ title: '打开预览失败', icon: 'none' })
+					},
+					complete: () => {
+						setTimeout(() => {
+							this.finishing = false
+						}, 400)
+					}
+				})
+			}
+		}
+	}
+</script>
+
+<style>
+	.page {
+		flex: 1;
+		background-color: #000000;
+	}
+
+	.preview {
+		position: absolute;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
+	}
+
+	.nav {
+		position: absolute;
+		left: 24rpx;
+		top: 88rpx;
+		width: 72rpx;
+		height: 72rpx;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.nav-text {
+		color: #ffffff;
+		font-size: 56rpx;
+		line-height: 72rpx;
+	}
+
+	.controls {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 80rpx;
+		align-items: center;
+	}
+
+	.shutter {
+		width: 128rpx;
+		height: 128rpx;
+		border-radius: 64rpx;
+		background-color: #FF6A00;
+		border-width: 8rpx;
+		border-style: solid;
+		border-color: #ffffff;
+	}
+
+	.actions {
+		margin-top: 36rpx;
+		width: 560rpx;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.action {
+		width: 160rpx;
+		height: 64rpx;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.action-spacer {
+		width: 128rpx;
+	}
+
+	.action-text {
+		color: #ffffff;
+		font-size: 28rpx;
+	}
+
+	.history-mask {
+		position: absolute;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.45);
+		justify-content: flex-end;
+	}
+
+	.history-panel {
+		background-color: rgba(30, 30, 30, 0.96);
+		padding-top: 24rpx;
+		padding-bottom: 40rpx;
+		padding-left: 24rpx;
+		padding-right: 24rpx;
+	}
+
+	.history-header {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 20rpx;
+	}
+
+	.history-title {
+		color: #ffffff;
+		font-size: 30rpx;
+	}
+
+	.history-close {
+		color: #cccccc;
+		font-size: 26rpx;
+	}
+
+	.history-empty {
+		height: 160rpx;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.history-empty-text {
+		color: #999999;
+		font-size: 26rpx;
+	}
+
+	.history-scroll {
+		width: 702rpx;
+		height: 180rpx;
+		flex-direction: row;
+	}
+
+	.history-item {
+		width: 160rpx;
+		height: 160rpx;
+		margin-right: 16rpx;
+		border-radius: 12rpx;
+		overflow: hidden;
+		background-color: #444444;
+		flex-direction: column;
+	}
+
+	.history-img {
+		width: 160rpx;
+		height: 160rpx;
+	}
+</style>

@@ -1,0 +1,140 @@
+/**
+ * 自定义相机 fsyang-camera —— 对外类型声明
+ * 本文件不加密，注释即 HBuilderX 代码提示（写清楚 = 免费说明书）
+ */
+
+/** 镜头方向：后置 / 前置 */
+export type FsyCameraPosition = 'back' | 'front'
+
+/** 闪光灯：关 / 开 / 自动 / 常亮(手电) */
+export type FsyFlashMode = 'off' | 'on' | 'auto' | 'torch'
+
+/** 工作模式：拍照 / 录像 */
+export type FsyCameraMode = 'photo' | 'video'
+
+/** 录像档位（实际可用以设备 ready 回传为准） */
+export type FsyVideoQuality = 'uhd' | 'fhd' | 'hd' | 'sd'
+
+/** 可独立申请的权限 */
+export type FsyPermission = 'camera' | 'microphone' | 'location'
+
+/** 水印配置（即 watermark 属性接收的 JSON 串字段；on:false 或空串 = 关闭水印） */
+export type FsyWatermark = {
+  /** 水印总开关（false / 空串 = 不绘制水印） */
+  on: boolean
+  /** 叠加拍摄时间，默认 true */
+  time?: boolean
+  /** 叠加日期，默认 true */
+  date?: boolean
+  /** 叠加星期，默认 true */
+  week?: boolean
+  /** 地点文字（如 "厦门"），空 = 不显示 */
+  location?: string
+  /** 自定义附加文字，空 = 不显示 */
+  text?: string
+}
+
+/** 拍照结果（@captured 回调 detail） */
+export type FsyPhotoResult = {
+  /** 固定为 'photo' */
+  type: string
+  /** 图片绝对路径（含 file://） */
+  path: string
+  /** 像素宽 */
+  width: number
+  /** 像素高 */
+  height: number
+  /** 文件字节数 */
+  size: number
+  /** 拍摄时间字符串（可能为空串） */
+  time?: string
+  /** 机型 */
+  model?: string
+  /** 厂商（iOS 回传；Android 此字段可能缺省，需要时自行读 EXIF） */
+  make?: string
+  /** EXIF 方向（iOS 回传） */
+  orientation?: number
+  /** 光圈值 f（iOS 且 saveExif=true 时回传） */
+  fnumber?: number
+  /** ISO（iOS 且 saveExif=true 时回传） */
+  iso?: number
+  /** 曝光时间秒（iOS 且 saveExif=true 时回传） */
+  exposure?: number
+  /** 是否含 GPS（saveLocation=true 且取到坐标时为 true） */
+  hasGps?: boolean
+  /** 纬度（hasGps=true 时有效） */
+  lat?: number
+  /** 经度（hasGps=true 时有效） */
+  lng?: number
+}
+
+/** 录像结果（@recordstop 回调 detail） */
+export type FsyVideoResult = {
+  /** 固定为 'video' */
+  type: string
+  /** 视频绝对路径（含 file://） */
+  path: string
+  /** 封面图绝对路径（含 file://，取第 coverFrame 帧；提取失败时不返回此字段） */
+  cover?: string
+  /** 文件字节数 */
+  size: number
+  /** 时长(毫秒) */
+  duration: number
+  /** 像素宽（视频编码尺寸） */
+  width: number
+  /** 像素高（视频编码尺寸） */
+  height: number
+}
+
+/** 单个录像档位能力 */
+export type FsyVideoQualityInfo = {
+  /** 档位标识 uhd/fhd/hd/sd */
+  quality: FsyVideoQuality
+  /** 通俗名，如 "1080P" */
+  label: string
+  /** 像素宽 */
+  width: number
+  /** 像素高 */
+  height: number
+  /** 该档可用帧率，如 [30,60] */
+  fps: number[]
+}
+
+/**
+ * 相机就绪事件回传的设备能力（供 UI 直接渲染）
+ * —— 变焦/曝光范围、闪光灯、拍照上限、录像真实档位一次给全
+ */
+export type FsyCameraReady = {
+  /** 最小变焦倍数 */
+  zoomMin: number
+  /** 最大变焦倍数 */
+  zoomMax: number
+  /** 曝光补偿档下限 */
+  exposureMin: number
+  /** 曝光补偿档上限 */
+  exposureMax: number
+  /** 是否有闪光灯 */
+  hasFlash: boolean
+  /** 当前实际镜头 */
+  position?: FsyCameraPosition
+  /** 拍照传感器最大宽 */
+  photoMaxWidth: number
+  /** 拍照传感器最大高 */
+  photoMaxHeight: number
+  /** 设备实际支持的录像档位（高→低排序，首=最高/末=最低） */
+  videoQualities?: FsyVideoQualityInfo[]
+  /** iOS 老设备兼容字段：JSON 字符串格式的录像档位列表 */
+  videoQualitiesJson?: string
+}
+
+/** 错误信息 */
+export type FsyCameraError = {
+  /**
+   * 错误码：
+   * no_permission 无权限 / no_camera 无可用相机 / not_ready 相机未就绪 /
+   * capture_fail 拍照失败 / record_fail 录像失败 / canceled 用户取消
+   */
+  code: string
+  /** 错误描述 */
+  message: string
+}

@@ -1,4 +1,4 @@
-export const INITIAL_SCREEN_VERSION_NO = 1;
+export const INITIAL_SCREEN_VERSION_NO = uni.getAppBaseInfo()?.appVersionCode || 1;
 
 /** 出厂 V1 更新说明；升级完成后由本机已安装版本的 changelog 覆盖。 */
 export const FACTORY_CHANGELOG_LINES = [

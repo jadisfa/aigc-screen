@@ -1,5 +1,12 @@
 /// <reference types="vite/client" />
 
+interface Uni {
+  $track: {
+    track(eventCode: string, properties?: Record<string, unknown>): void;
+    flush(): Promise<void>;
+  };
+}
+
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
 }

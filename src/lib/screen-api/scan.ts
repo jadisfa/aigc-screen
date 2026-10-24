@@ -49,8 +49,9 @@ export function cancelBannerUpload(sessionId: string) {
   });
 }
 
-export function issueHandModelUpload() {
-  return screenRequest<ScreenScanIssued>("/api/screen/hand-model-uploads", { method: "POST" });
+export function issueHandModelUpload(saveAsCustom = false) {
+  const query = saveAsCustom ? "?saveAsCustom=true" : "";
+  return screenRequest<ScreenScanIssued>(`/api/screen/hand-model-uploads${query}`, { method: "POST" });
 }
 
 export function pollHandModelUpload(sessionId: string) {

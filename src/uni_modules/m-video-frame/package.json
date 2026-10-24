@@ -1,0 +1,122 @@
+{
+    "id": "m-video-frame",
+    "name": "m-video-frame",
+    "displayName": "m-video-frame",
+    "version": "1.0.1",
+    "description": "视频缩略图生成插件，支持指定时间点，本地路径和 http(s) URL。",
+    "keywords": [
+        "视频缩略图",
+        "MediaMetadataRetriever",
+        "AVAssetImageGenerator",
+        "android",
+        "ios"
+    ],
+    "dcloudext": {
+        "type": "uts",
+        "sale": {
+            "regular": {
+                "price": "0.00"
+            }
+        },
+        "contact": {
+            "qq": ""
+        },
+        "declaration": {
+            "ads": "无",
+            "data": "插件不采集任何用户数据，仅根据调用方传入的视频地址在本机生成缩略图。",
+            "permissions": "Android: 读取本地媒体时可能需要 READ_MEDIA_VIDEO / READ_EXTERNAL_STORAGE；访问网络视频需应用具备网络权限。iOS: 访问网络视频需 ATS 配置允许目标域名；访问相册安全资源请先通过系统选择器获得临时授权。"
+        },
+        "npmurl": "",
+        "darkmode": "x",
+        "i18n": "x",
+        "widescreen": "x"
+    },
+    "uni_modules": {
+        "dependencies": [],
+        "encrypt": [],
+        "platforms": {
+            "client": {
+                "uni-app": {
+                    "vue": {
+                        "vue2": {
+                            "extVersion": "1.0.0",
+                            "minVersion": ""
+                        },
+                        "vue3": {
+                            "extVersion": "1.0.0",
+                            "minVersion": ""
+                        }
+                    },
+                    "web": {
+                        "safari": "-",
+                        "chrome": "-"
+                    },
+                    "app": {
+                        "vue": "-",
+                        "nvue": "-",
+                        "android": {
+                            "extVersion": "1.0.0",
+                            "minVersion": "21"
+                        },
+                        "ios": {
+                            "extVersion": "1.0.0",
+                            "minVersion": "12"
+                        },
+                        "harmony": "x"
+                    },
+                    "mp": {
+                        "weixin": "-",
+                        "alipay": "-",
+                        "toutiao": "-",
+                        "baidu": "-",
+                        "kuaishou": "-",
+                        "jd": "-",
+                        "harmony": "-",
+                        "qq": "-",
+                        "lark": "-",
+                        "xhs": "-"
+                    },
+                    "quickapp": {
+                        "huawei": "-",
+                        "union": "-"
+                    }
+                },
+                "uni-app-x": {
+                    "web": {
+                        "safari": "-",
+                        "chrome": "-"
+                    },
+                    "app": {
+                        "android": "-",
+                        "ios": "-",
+                        "harmony": "-"
+                    },
+                    "mp": {
+                        "weixin": "-"
+                    }
+                }
+            },
+            "cloud": {
+                "tcb": "x",
+                "aliyun": "x",
+                "alipay": "x"
+            }
+        },
+        "treeShaking": {
+            "app": {
+                "android": true,
+                "ios": true,
+                "harmony": false
+            },
+            "web": false
+        }
+    },
+    "engines": {
+        "uni-app": "^4.83",
+        "uni-app-x": "^4.83"
+    },
+    "repository": "",
+    "devDependencies": {
+        "@dcloudio/uni-uts-v1": "^3.0.0-alpha-3060720221018004"
+    }
+}

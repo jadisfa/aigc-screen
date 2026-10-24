@@ -163,7 +163,7 @@ type StatusFilter = "all" | "定制款" | "推荐款" | "AI试戴";
 const TABS: { id: KindTab; label: string }[] = [
   { id: "all", label: "全部" },
   { id: "outfit", label: "美甲穿搭" },
-  { id: "text", label: "文生美甲" },
+  { id: "text", label: "商品匹配" },
 ];
 
 const PRESETS: { id: TimePreset; label: string }[] = [

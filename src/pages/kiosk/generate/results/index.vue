@@ -6,21 +6,26 @@
       <kiosk-chip :icon="ASSETS.back" variant="glass" label="返回" @click="onBack" />
     </view>
 
-    <view class="res-hero">
-      <image v-if="current.image" class="res-hero__shot" :src="current.image" mode="aspectFill" />
-      <view v-else class="res-hero__empty">
-        <text>暂无匹配款式</text>
-      </view>
-      <view class="res-hero__compare" hover-class="none" @click="onCompare">
-        <image class="res-hero__compare-icon" :src="ASSETS.compare" mode="aspectFit" />
-        <text>穿搭对比</text>
-      </view>
-      <view v-if="current.id" class="res-buy" hover-class="none" @click="onBuy">
-        <image class="res-buy__thumb" :src="current.buyThumb" mode="aspectFill" />
-        <text class="res-buy__price">{{ current.price }}</text>
-        <text class="res-buy__label">购买同款</text>
-      </view>
-    </view>
+	<view class="res-hero">
+		<swiper class="res-swiper" previous-margin="47px" next-margin="47px" :current="activeIndex" @change="handleChange" :circular="true">
+			<swiper-item class="res-swiper-item" v-for="(lookItem, lookIndex) in looks" :key="lookIndex" :class="{ 'active': activeIndex == lookIndex}">
+				<image v-if="lookItem.image" class="res-hero__shot" :src="lookItem.image" mode="aspectFill" />
+				<view v-else class="res-hero__empty">
+				  <text>暂无匹配款式</text>
+				</view>
+				<view v-if="from == null && activeIndex == lookIndex" class="res-hero__compare" hover-class="none" @click="onCompare">
+				  <image class="res-hero__compare-icon" :src="ASSETS.compare" mode="aspectFit" />
+				  <text>穿搭对比</text>
+				</view>
+				<view v-if="lookItem.id && activeIndex == lookIndex" class="res-buy" hover-class="none" @click="onBuy">
+				  <image class="res-buy__thumb" :src="lookItem.buyThumb" mode="aspectFill" />
+				  <text class="res-buy__price">{{ lookItem.price }}</text>
+				  <text class="res-buy__label">购买同款</text>
+				</view>
+			</swiper-item>
+		</swiper>
+	</view>
+	
 
     <scroll-view v-if="looks.length" class="res-thumbs" scroll-x :show-scrollbar="false" enable-flex>
       <view class="res-thumbs__row">
@@ -38,7 +43,7 @@
     </scroll-view>
 
     <view class="res-panel">
-      <view class="res-tip" hover-class="none">
+      <view class="res-tip" hover-class="none" @click="onAdjustStyle">
         <text>试试调整风格标签，重新生成你喜欢的穿戴甲吧</text>
         <image class="res-tip__arrow" :src="ASSETS.arrow" mode="aspectFit" />
       </view>
@@ -63,6 +68,14 @@
       </view>
     </view>
 
+    <kiosk-image-compare
+      v-if="showCompare"
+      :before="compareBefore"
+      :after="compareAfter"
+	  :beforeLabel="'穿搭'"
+      @close="showCompare = false"
+    />
+
     <view class="res-actions">
       <view class="res-actions__ghost" :class="{ 'is-busy': rematching }" hover-class="none" @click="onRegen">
         <text>{{ rematching ? "匹配中" : "重新匹配" }}</text>
@@ -76,8 +89,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onShow, onLoad } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
+import KioskImageCompare from "@/components/kiosk/kiosk-image-compare.vue";
 import { toGenerateLooks, type GenerateLook } from "@/data/results";
 import {
   experienceStyleTags,
@@ -88,6 +102,9 @@ import {
 } from "@/lib/experience-flow";
 import { KIOSK_PAGES, goBackOr } from "@/lib/kiosk-routes";
 import { showScreenError } from "@/lib/screen-http";
+import { trackTryonEntry } from "@/lib/track-events";
+import { readTryOnImageUrl, writeTryOnLookId, writeTryOnNailUrl, clearTryOnHandSelection } from "@/data/try-on";
+import { clearPreview, readPreview } from "@/lib/upload-flow";
 import type { ScreenExperience } from "@/lib/screen-api/experiences";
 
 const ASSETS = {
@@ -104,8 +121,20 @@ const looks = ref<GenerateLook[]>([]);
 const activeIndex = ref(0);
 const tags = ref<ResultTag[]>([]);
 const rematching = ref(false);
+const showCompare = ref(false);
+const compareBefore = ref("");
+const compareAfter = ref("");
+const sourceImageUrl = ref("");
 const emptyLook: GenerateLook = { id: "", image: "", price: "", buyThumb: "" };
 const current = computed(() => looks.value[activeIndex.value] ?? emptyLook);
+const from = ref<string | null>(null); // 来源，关键词不显示穿搭对比
+
+onLoad((query?: Record<string, string>) => {
+	console.log(query?.from)
+  if (query?.from == 'keywords') {
+	  from.value = 'keywords'
+  }
+})
 
 onShow(() => {
   const keepSelection = tags.value.length > 0;
@@ -128,6 +157,7 @@ async function loadResults() {
 }
 
 function applyExperience(experience: ScreenExperience | null, keepSelection = false) {
+  sourceImageUrl.value = (experience?.sourceImageUrl || "").trim();
   looks.value = toGenerateLooks(experience?.matchedProducts);
   activeIndex.value = 0;
   const previous = keepSelection ? tags.value : [];
@@ -146,18 +176,37 @@ function toggleTag(index: number) {
 }
 
 function onBack() {
+  console.log('生成结果返回');
   goBackOr(KIOSK_PAGES.home);
 }
 
 function onCompare() {
-  uni.showToast({ title: "暂不支持穿搭对比", icon: "none" });
+  const before = sourceImageUrl.value || readTryOnImageUrl() || readPreview("outfit") || readPreview("hand-model");
+  const after = current.value.image;
+  if (!before) {
+    uni.showToast({ title: "读取穿搭图失败", icon: "none" });
+    return;
+  }
+  if (!after) {
+    uni.showToast({ title: "暂无效果图", icon: "none" });
+    return;
+  }
+  compareBefore.value = before;
+  compareAfter.value = after;
+  showCompare.value = true;
+}
+
+function onAdjustStyle() {
+  uni.navigateTo({ url: `${KIOSK_PAGES.keywords}?tab=keywords` });
 }
 
 function onBuy() {
   if (!current.value.id) {
     return;
   }
-  uni.navigateTo({ url: `${KIOSK_PAGES.productDetail}?id=${encodeURIComponent(current.value.id)}` });
+  const pages = getCurrentPages();
+  const currentRoute = pages[pages.length - 1]?.route;
+  uni.navigateTo({ url: `${KIOSK_PAGES.productDetail}?id=${encodeURIComponent(current.value.id)}&from=${currentRoute}` });
 }
 
 async function onRegen() {
@@ -180,8 +229,22 @@ async function onRegen() {
 }
 
 function onTry() {
+  trackTryonEntry();
+  clearTryOnHandSelection();
+  clearPreview("hand-model");
+  if (current.value.id) {
+    writeTryOnLookId(current.value.id);
+  }
+  if (current.value.image) {
+    writeTryOnNailUrl(current.value.image);
+  }
   const look = current.value.id ? `?look=${encodeURIComponent(current.value.id)}` : "";
   uni.navigateTo({ url: `${KIOSK_PAGES.tryOn}${look}` });
+}
+
+const handleChange = (event: any) => {
+	const currentIndex = event?.detail?.current;
+	activeIndex.value = currentIndex;
 }
 </script>
 
@@ -227,16 +290,40 @@ page {
 .res-hero {
   position: relative;
   z-index: 1;
-  width: calc(816 * var(--u));
-  height: calc(816 * var(--u));
+  /* width: calc(816 * var(--u)); */
+  width: 100%;
+  height: calc(820 * var(--u));
   margin: calc(32 * var(--u)) auto 0;
 }
 
+.res-swiper {
+	width: 100%;
+	height: 100%;
+}
+.res-swiper-item {
+	width: 100%;
+	height: 100%;
+	position: relative;
+	display: flex;
+	justify-content: center;
+}
+
 .res-hero__shot {
-  width: 100%;
-  height: 100%;
+  /* width: 100%;
+  height: 100%; */
+  width: calc(816 * var(--u));
+  height: calc(816 * var(--u));;
   border-radius: calc(60 * var(--u));
   box-shadow: 0 0 calc(29 * var(--u)) rgba(0, 0, 0, 0.1);
+  /* ★ 默认缩小 */
+  transform: scale(0.88);
+  /* ★ 平滑过渡 */
+  transition: transform 0.35s ease;
+  /* ★ GPU 加速 */
+  will-change: transform;
+}
+.res-swiper-item.active .res-hero__shot {
+	transform: scale(1);
 }
 
 .res-hero__empty {

@@ -1,0 +1,28 @@
+/* uni error helpers - keep fixed arity (iOS UTS optional params break Swift) */
+import { ExtractVideoFrameErrorCode, ExtractVideoFrameErrorObject } from './interface.uts'
+
+export const UniErrorSubject = 'm-video-frame'
+
+export const VideoFrameErrors: Map<ExtractVideoFrameErrorCode, string> = new Map([
+  [9030001, '抽帧失败'],
+  [9030002, '视频地址不能为空'],
+  [9030003, '不支持该视频地址或平台能力受限'],
+  [9030004, '图片保存失败'],
+  [9030005, '暂不支持该平台，仅支持普通 uni-app App（Android / iOS）']
+])
+
+/** Single-arg only - same as m-choose-file (cloud-pack safe). */
+export function createErrorObject(errCode: ExtractVideoFrameErrorCode): ExtractVideoFrameErrorObject {
+  return {
+    errCode: errCode,
+    errMsg: VideoFrameErrors.get(errCode) ?? ''
+  }
+}
+
+/** Two required args - never use optional params on iOS UTS. */
+export function createErrorObjectWithMsg(errCode: ExtractVideoFrameErrorCode, errMsg: string): ExtractVideoFrameErrorObject {
+  return {
+    errCode: errCode,
+    errMsg: errMsg
+  }
+}

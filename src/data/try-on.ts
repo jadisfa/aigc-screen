@@ -5,6 +5,7 @@ import type { ScreenHandModelList } from "@/lib/screen-api/hand-models";
 export const TRYON_LOOK_KEY = "kiosk.tryon.lookId";
 export const TRYON_HAND_KEY = "kiosk.tryon.handId";
 export const TRYON_RESULT_KEY = "kiosk.tryon.result";
+export const TRYON_TASK_KEY = "kiosk.tryon.taskId";
 export const TRYON_IMAGE_KEY = "kiosk.tryon.imageUrl";
 export const TRYON_NAIL_KEY = "kiosk.tryon.nailUrl";
 
@@ -19,7 +20,9 @@ export const TRYON_WAIT_LINES = [
 ];
 
 export function toKioskHands(list: ScreenHandModelList | null | undefined): HandModel[] {
-  const rows = [...(list?.official || []), ...(list?.custom || [])];
+  const rows = [...(list?.official || []), ...(list?.custom || [])].sort(
+    (a, b) => (a.sortNo ?? Number.MAX_SAFE_INTEGER) - (b.sortNo ?? Number.MAX_SAFE_INTEGER),
+  );
   return rows
     .map((row) => ({
       id: row.configId || row.materialId || "",
@@ -66,6 +69,11 @@ export function clearTryOnHandId() {
   uni.removeStorageSync(TRYON_HAND_KEY);
 }
 
+export function clearTryOnHandSelection() {
+  clearTryOnHandId();
+  uni.removeStorageSync(TRYON_IMAGE_KEY);
+}
+
 export function writeTryOnImageUrl(imageUrl: string) {
   uni.setStorageSync(TRYON_IMAGE_KEY, imageUrl);
 }
@@ -88,4 +96,12 @@ export function writeTryOnResult(image: string) {
 
 export function readTryOnResult() {
   return (uni.getStorageSync(TRYON_RESULT_KEY) || "") as string;
+}
+
+export function writeTryOnTaskId(taskId: string) {
+  uni.setStorageSync(TRYON_TASK_KEY, taskId);
+}
+
+export function readTryOnTaskId() {
+  return String(uni.getStorageSync(TRYON_TASK_KEY) || "");
 }

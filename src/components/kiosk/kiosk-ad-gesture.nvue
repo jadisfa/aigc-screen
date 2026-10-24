@@ -1,0 +1,53 @@
+<template>
+  <view class="gesture-layer" @touchstart="onTouchStart" @touchend="onTouchEnd"></view>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      startX: 0,
+      startY: 0,
+      SWIPE_THRESHOLD: 40,
+      isSending: false // 防抖锁，防止短时间重复emit
+    };
+  },
+  methods: {
+    onTouchStart(e) {
+      this.startX = e.touches[0].screenX;
+      this.startY = e.touches[0].screenY;
+    },
+    onTouchEnd(e) {
+      if(this.isSending) return;
+      this.isSending = true;
+
+      const endX = e.changedTouches[0].screenX;
+      const endY = e.changedTouches[0].screenY;
+      const deltaX = endX - this.startX;
+      const deltaY = endY - this.startY;
+console.log(deltaX, deltaY, 'nvue')
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > this.SWIPE_THRESHOLD) {
+        const direction = deltaX < 0 ? "next" : "prev";
+        uni.$emit("kioskAdSwipe", direction);
+      }
+      setTimeout(()=>{
+        this.isSending = false;
+      },100)
+    }
+  }
+};
+</script>
+
+<style>
+.gesture-layer {
+  flex: 1;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 1);
+  border: 1rpx solid #f90;
+  z-index: 99999;
+}
+</style>

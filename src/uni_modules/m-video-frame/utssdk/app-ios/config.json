@@ -1,0 +1,14 @@
+{
+  "deploymentTarget": "12",
+  "platforms": ["ios"],
+  "frameworks": [
+    "Foundation.framework",
+    "AVFoundation.framework",
+    "CoreMedia.framework",
+    "CoreGraphics.framework",
+    "UIKit.framework"
+  ],
+  "ios": {
+    "sourceFiles": ["VideoFrameNative.swift"]
+  }
+}

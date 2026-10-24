@@ -13,6 +13,8 @@ node_modules
 dist
 
 .hbuilderx
+src/uni_modules/s-vconsole
+.env
 
 # Executables
 *.swf

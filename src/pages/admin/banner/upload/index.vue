@@ -1,7 +1,7 @@
 <template>
   <view class="up">
     <view class="up__bar">
-      <kiosk-chip :icon="ASSETS.back" label="自定义上传banner" @click="onBack" />
+      <kiosk-chip :icon="ASSETS.back" :label="editingId ? '编辑banner' : '自定义上传banner'" @click="onBack" />
     </view>
 
     <view class="up-tabs">
@@ -26,12 +26,12 @@
     <text class="up__hint">{{ hint }}</text>
 
     <view class="up-grid">
-      <view v-if="drafts.length < 5" class="up-plus" hover-class="none" @click="openQr">
+      <view v-if="drafts.length < BANNER_MEDIA_LIMIT" class="up-plus" hover-class="none" @click="openQr">
         <image class="up-plus__icon" :src="ASSETS.plus" mode="aspectFit" />
         <text>上传轮播图</text>
       </view>
       <view v-for="(src, index) in drafts" :key="`${src}-${index}`" class="up-thumb">
-        <image class="up-thumb__shot" :src="src" mode="aspectFill" />
+        <banner-shot class="up-thumb__shot" :kind="kind" :src="src" :cover="coverOf(src)" />
         <image class="up-thumb__x" :src="ASSETS.close" mode="aspectFit" @click.stop="removeDraft(index)" />
       </view>
     </view>
@@ -49,12 +49,16 @@
     </view>
 
     <view class="up-link">
-      <view class="up-link__row" hover-class="none" @click="pickLink">
+      <view class="up-link__row">
         <text class="up-row__label">跳转链接</text>
-        <view class="up-link__value">
-          <text>{{ link }}</text>
-          <image class="up-link__chev" :src="ASSETS.chevron" mode="aspectFit" />
-        </view>
+        <input
+          class="up-link__input"
+          v-model="link"
+          maxlength="255"
+          placeholder="请输入跳转地址"
+          placeholder-style="color:#989898"
+          :adjust-position="false"
+        />
       </view>
       <text class="up-link__hint">{{
         kind === "video" ? "批量上传的轮播视频将共用同一个跳转链接" : "批量上传的轮播图片将共用同一个跳转链接"
@@ -72,7 +76,15 @@
         <image class="up-sheet__close" :src="ASSETS.close" mode="aspectFit" @click="closeQr" />
         <text class="up-sheet__title">扫码上传banner轮播图</text>
         <text class="up-sheet__lead">{{ hint }}</text>
-        <scan-stage class="up-sheet__stage" :preview="qrPreview" :status="qrStatus" :qr-src="qrSrc" @tap="onQrTap" @retry="openQr" />
+        <scan-stage
+          class="up-sheet__stage"
+          :preview="qrPreview"
+          :media-kind="kind"
+          :status="qrStatus"
+          :qr-src="qrSrc"
+          @tap="onQrTap"
+          @retry="openQr"
+        />
       </view>
     </view>
   </view>
@@ -82,9 +94,23 @@
 import { computed, ref } from "vue";
 import { onLoad, onUnload } from "@dcloudio/uni-app";
 import KioskChip from "@/components/kiosk/kiosk-chip.vue";
+import BannerShot from "@/components/admin/banner-shot.vue";
 import ScanStage from "@/components/upload/scan-stage.vue";
-import { LINK_OPTIONS, type BannerKind, type BannerStatus } from "@/data/admin";
+import {
+  BANNER_MEDIA_LIMIT,
+  isCustomBanner,
+  libraryMediaFromContent,
+  toBannerItem,
+  type BannerKind,
+  type BannerStatus,
+} from "@/data/admin";
 import { ADMIN_PAGES, goBackOr } from "@/lib/kiosk-routes";
+import {
+  createCustomBanner,
+  fetchBannerCatalog,
+  patchBannerCatalog,
+  patchDeviceBanner,
+} from "@/lib/screen-api/banners";
 import { cancelBannerUpload, issueBannerUpload, pollBannerUpload } from "@/lib/screen-api/scan";
 import { isPollAborted, mapScanStatus, pollUntilTerminal, qrImageUrl } from "@/lib/scan-session";
 import { showScreenError } from "@/lib/screen-http";
@@ -94,28 +120,35 @@ const ASSETS = {
   back: "/static/scan/back.svg",
   plus: "/static/tryon/plus.svg",
   close: "/static/tryon/close.svg",
-  chevron: "/static/admin/chevron.svg",
 };
 
 const kind = ref<BannerKind>("image");
 const status = ref<BannerStatus>("on");
-const link = ref(LINK_OPTIONS[0]);
+const link = ref("");
 const drafts = ref<string[]>([]);
+const covers = ref<Record<string, string>>({});
+const editingStoreAdId = ref("");
+const editingConfigId = ref("");
+const saving = ref(false);
 const showQr = ref(false);
 const qrPreview = ref("");
 const qrStatus = ref<ScanStatus>("waiting");
 const qrSrc = ref("");
 let scanSessionId = "";
 let polling = false;
+const editingId = computed(() => editingStoreAdId.value || editingConfigId.value);
 
 const hint = computed(() =>
   kind.value === "video"
-    ? "可上传mp4格式的视频，最多可上传5段，每段大小不超过50M。"
-    : "最多上传 5 张图片，支持 JPEG、JPG、PNG 格式，单张图片大小≤10M",
+    ? `可上传mp4格式的视频，最多可上传${BANNER_MEDIA_LIMIT}段，每段大小不超过50M。`
+    : `最多上传 ${BANNER_MEDIA_LIMIT} 张图片，支持 JPEG、JPG、PNG 格式，单张图片大小≤10M`,
 );
 
-onLoad(() => {
-  // 自定义上传走扫码会话，服务端在 H5 上传成功后写入本机配置
+onLoad((query) => {
+  const id = typeof query?.id === "string" ? query.id.trim() : "";
+  if (id) {
+    void loadForEdit(id);
+  }
 });
 
 onUnload(() => {
@@ -151,10 +184,9 @@ async function openQr() {
     }
     if (session.status === "ready" && session.assetUrl) {
       qrPreview.value = session.assetUrl;
-      if (drafts.value.length < 5) {
+      if (drafts.value.length < BANNER_MEDIA_LIMIT) {
         drafts.value = [...drafts.value, session.assetUrl];
       }
-      uni.showToast({ title: "已上传", icon: "none" });
       showQr.value = false;
       resetQr();
       scanSessionId = "";
@@ -195,31 +227,76 @@ function onQrTap() {
   // 二维码由出码接口生成，点击不模拟扫码
 }
 
+function coverOf(src: string) {
+  return covers.value[src] || "";
+}
+
 function removeDraft(index: number) {
   drafts.value = drafts.value.filter((_, i) => i !== index);
 }
 
-function pickLink() {
-  uni.showActionSheet({
-    itemList: LINK_OPTIONS,
-    success: (res) => {
-      const picked = LINK_OPTIONS[res.tapIndex];
-      if (picked) {
-        link.value = picked;
-      }
-    },
-  });
+async function loadForEdit(id: string) {
+  try {
+    const catalog = await fetchBannerCatalog();
+    const row = (catalog || []).find((item) => item.storeAdId === id || item.configId === id);
+    if (!row || !isCustomBanner(row)) {
+      (uni as any).$toast?.error("仅自定义 Banner 可编辑", undefined, 1000);
+      goBackOr(ADMIN_PAGES.banner);
+      return;
+    }
+    const item = toBannerItem(row);
+    editingStoreAdId.value = item.storeAdId || item.id;
+    editingConfigId.value = item.configId || "";
+    const media = libraryMediaFromContent(item.contentJson, item.image, item.kind);
+    drafts.value = media.map((row) => row.src);
+    covers.value = Object.fromEntries(media.filter((row) => row.src && row.cover).map((row) => [row.src, row.cover]));
+    kind.value = item.kind;
+    status.value = item.inUse ? item.status : "off";
+    link.value = !item.link || item.link === "不跳转" ? "" : item.link;
+  } catch (error) {
+    showScreenError(error, "轮播图加载失败");
+    goBackOr(ADMIN_PAGES.banner);
+  }
 }
 
-function onSave() {
+async function onSave() {
   if (!drafts.value.length) {
     uni.showToast({ title: "请先上传轮播图", icon: "none" });
     return;
   }
-  uni.showToast({ title: "已保存", icon: "none" });
-  setTimeout(() => {
-    goBackOr(ADMIN_PAGES.banner);
-  }, 400);
+  if (saving.value) {
+    return;
+  }
+  saving.value = true;
+  const linkUrl = !link.value.trim() || link.value.trim() === "不跳转" ? "" : link.value.trim();
+  const openDeviceConfig = status.value === "on" ? "yes" : "no";
+  const displayForm = kind.value === "video" ? "video_dynamic" : "image_scroll";
+  const patch = {
+    openDeviceConfig: openDeviceConfig as "yes" | "no",
+    assetUrls: drafts.value,
+    linkUrl,
+    displayForm,
+  };
+  try {
+    if (editingStoreAdId.value) {
+      await patchBannerCatalog(editingStoreAdId.value, patch);
+    } else if (editingConfigId.value) {
+      await patchDeviceBanner(editingConfigId.value, patch);
+    } else {
+      await createCustomBanner({
+        assetUrls: drafts.value,
+        linkUrl,
+        displayForm,
+        openDeviceConfig,
+      });
+    }
+    (uni as any).$toast?.success("保存成功", undefined, 1000);
+    setTimeout(() => goBackOr(ADMIN_PAGES.banner), 400);
+  } catch (error) {
+    showScreenError(error, "保存失败");
+  } finally {
+    saving.value = false;
+  }
 }
 </script>
 
@@ -384,19 +461,15 @@ page {
   justify-content: space-between;
 }
 
-.up-link__value {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: calc(16 * var(--u));
+.up-link__input {
+  flex: 1;
+  min-width: 0;
+  height: calc(80 * var(--u));
+  margin-left: calc(32 * var(--u));
   font-size: calc(32 * var(--u));
   font-weight: 500;
   color: #333;
-}
-
-.up-link__chev {
-  width: calc(10 * var(--u));
-  height: calc(20 * var(--u));
+  text-align: right;
 }
 
 .up-link__hint {
