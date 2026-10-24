@@ -10,17 +10,18 @@ bin-release/
 # Node dependencies
 node_modules
 
+# dist 打包信息不提交
 dist
 
-.hbuilderx
-src/uni_modules/s-vconsole
-.env
 
 # Executables
 *.swf
 *.air
 *.ipa
 *.apk
+
+README.md
+lint-report.json
 package-lock.json
 
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`

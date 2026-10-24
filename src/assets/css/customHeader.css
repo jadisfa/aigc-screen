@@ -1,0 +1,29 @@
+.custom-header {
+  width: calc(100vw - 13px);
+  height: 64px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9;
+  padding: 0 24px;
+  background: rgba(0, 0, 0, 0.4) !important;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.nal-header-tabbar {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+.nal-tabbar-item {
+  padding: 0 10px;
+  font-size: 18px;
+  line-height: 40px;
+  color: #fff !important;
+  cursor: pointer;
+}

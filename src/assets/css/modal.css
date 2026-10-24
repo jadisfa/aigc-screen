@@ -1,0 +1,189 @@
+.modal-content {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-container {
+  width: 840px;
+  height: 612px;
+  background: #fff;
+  padding: 20px 24px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  width: 100%;
+  height: 24px;
+  margin-bottom: 8px;
+}
+/* 加载动画 */
+.modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  gap: 12px;
+  color: #666;
+  margin-top: 147px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1890ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 错误状态 */
+.modal-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  gap: 16px;
+  color: #ff4d4f;
+}
+
+.retry-btn {
+  padding: 8px 24px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: #40a9ff;
+}
+
+/* 原有的 workflow 样式保持不变 */
+.workflow-grid.modal {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 8px;
+  box-sizing: border-box;
+  min-height: 100%;
+  align-content: start;
+  .workflow-item {
+    background-color: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 16px;
+    width: 376.5px;
+    height: 100.5px;
+    border: 1px solid #e9e9e9;
+    padding: 11px 13px;
+    /* 移除居中对齐，让内容按默认左对齐 */
+    display: flex;
+    flex-direction: row;
+    align-items: center; /* 垂直居中 */
+    text-align: left; /* 或者使用 text-align: left 让文本左对齐 */
+    word-break: break-word;
+    /* transition: all 0.3s ease; */
+    position: relative;
+    cursor: pointer;
+  }
+
+  .workflow-item:hover {
+    background: #e6f7ff;
+    border-color: #1890ff;
+    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+  }
+
+  .workflow-item.placeholder {
+    cursor: default;
+    color: #999;
+    text-align: center;
+    padding: 40px 0;
+  }
+
+  .workflow-item.placeholder:hover {
+    border-color: #e8e8e8;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .workflow-img {
+    width: 67.5px;
+    height: 67.5px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 7px;
+  }
+
+  .workflow-infos {
+    flex: 1;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .workflow-title {
+    height: 26px;
+    font-size: 18px;
+    line-height: 26px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .workflow-description {
+    width: 100%;
+    font-size: 15px;
+    line-height: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 20px;
+    margin: 4px 0;
+  }
+
+  .workflow-tags {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+
+  .workflow-tag {
+    height: 17px;
+    margin-right: 4px;
+    font-size: 12px;
+    line-height: 17px;
+    padding: 0 5px;
+    background: #f5f5f5;
+    border-radius: 4px;
+  }
+
+  .workflow-label {
+    width: 29px;
+    height: 14px;
+    position: absolute;
+    right: 13px;
+    top: 7px;
+  }
+}

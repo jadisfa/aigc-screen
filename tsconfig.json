@@ -1,13 +1,24 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.json",
   "compilerOptions": {
-    "sourceMap": true,
-    "baseUrl": ".",
+    "allowJs": true,
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
-    "lib": ["esnext", "dom"],
-    "types": ["@dcloudio/types"]
+    "skipLibCheck": true,
+    "strictNullChecks": false
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"]
+  "files": [],
+  "references": [
+    // {
+    //   "path": "./tsconfig.app.json"
+    // },
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
 }

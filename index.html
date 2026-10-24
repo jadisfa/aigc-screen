@@ -1,20 +1,26 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      var coverSupport = 'CSS' in window && typeof CSS.supports === 'function' && (CSS.supports('top: env(a)') ||
-        CSS.supports('top: constant(a)'))
-      document.write(
-        '<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0' +
-        (coverSupport ? ', viewport-fit=cover' : '') + '" />')
-    </script>
-    <title>NAILOOK 美甲穿搭</title>
-    <!--preload-links-->
-    <!--app-context-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- TODO: Set the document title to the name of your application -->
+    <title>AIGC应用平台(奈杜)</title>
+    <meta name="description" content="AIGC应用平台(奈杜), 奈杜星球" />
+    <meta name="author" content="Leeee" />
+
+    <!-- TODO: Update og:title to match your application name -->
+    <meta property="og:title" content="AIGC应用平台(奈杜)" />
+    <meta property="og:description" content="奈杜-AIGC应用平台" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="奈杜星球" />
+    <meta name="twitter:image" content="" />
   </head>
+
   <body>
-    <div id="app"><!--app-html--></div>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

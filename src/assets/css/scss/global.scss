@@ -1,0 +1,171 @@
+/* src/assets/css/global.css */
+
+/* ============================================
+   CSS Variables (替换 SCSS 变量)
+   ============================================ */
+:root {
+  --text-align: center;
+  --margin-auto: 0 auto;
+  --primary-color: #7d33ff;
+  --bg-gray: #f8f8f8;
+  --border-gray: #e9e9e9;
+  --text-dark: #333;
+  --text-light: #666;
+  --text-gray: #999;
+  --white: #fff;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   Font Face - PingFang 字体
+   ============================================ */
+@font-face {
+  font-family: "PingFangRegular";
+  src:
+    url("https://ai-1357282892.cos.ap-shanghai.myqcloud.com/webFont/PingFang_Regular.ttf")
+      format("truetype"),
+    url("https://ai-1357282892.cos.ap-shanghai.myqcloud.com/webFont/PingFang_Regular.ttf")
+      format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "PingFangMedium";
+  src:
+    url("https://ai-1357282892.cos.ap-shanghai.myqcloud.com/webFont/PingFang_Medium.ttf")
+      format("truetype"),
+    url("https://ai-1357282892.cos.ap-shanghai.myqcloud.com/webFont/PingFang_Medium.ttf")
+      format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================
+   工具类 (对应 SCSS 中的 .pingMedium)
+   ============================================ */
+.ping-regular {
+  font-family:
+    "PingFangRegular",
+    "PingFang SC",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+.ping-medium {
+  font-family:
+    "PingFangMedium",
+    "PingFang SC",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+/* ============================================
+   工具类 (对应 SCSS 变量)
+   ============================================ */
+.text-center {
+  text-align: var(--text-align);
+}
+
+.mx-auto {
+  margin: var(--margin-auto);
+}
+
+.ndmy-bg {
+  background-color: var(--primary-color) !important;
+  color: var(--white) !important;
+}
+
+.ndmy-text {
+  color: var(--primary-color);
+}
+
+.ndmy-border {
+  border-color: var(--primary-color);
+}
+
+/* ============================================
+   通用重置
+   ============================================ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    "PingFangRegular",
+    "PingFang SC",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  background: var(--bg-gray);
+  color: var(--text-dark);
+  width: 100vw;
+}
+
+
+.gradient.primary {
+  color: white;
+  background: linear-gradient(to right, rgb(3, 218, 198) 0%, rgb(67, 56, 202) 100%) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.gradient.primary.disabled {
+  color: white;
+  background: linear-gradient(to right, rgba(3, 218, 198, .5) 0%, rgba(67, 56, 202, .5) 100%) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.gradient.purple {
+  color: white;
+  background: linear-gradient(318deg, rgb(148, 76, 206) 0%, rgb(191, 60, 179) 50%, rgb(236, 39, 145) 100%) !important;
+}
+.gradient.cancel {
+  background: linear-gradient(318deg, rgb(203, 213, 225) 0%, rgb(226, 232, 240) 50%, rgb(241, 245, 249) 100%) !important;
+}
+.gradient.success {
+  color: white;
+  background: linear-gradient(318deg, rgb(66, 186, 91) 0%, rgb(113, 207, 86) 50%, rgb(153, 223, 75) 100%) !important;
+}
+.gradient.info {
+  color: white;
+  background: linear-gradient(318deg, rgb(72, 118, 252) 0%, rgb(69, 165, 249) 50%, rgb(62, 202, 242) 100%) !important;
+}
+.gradient.blue {
+  color: white;
+  background: linear-gradient(318deg, rgb(30, 64, 175) 0%, rgb(37, 99, 235) 50%, rgb(59, 130, 246) 100%) !important;
+}
+.gradient.warning {
+  color: white;
+  background: linear-gradient(318deg, rgb(240, 96, 93) 0%, rgb(243, 153, 89) 50%, rgb(236, 197, 81) 100%) !important;
+}
+.gradient.error {
+  color: white;
+  background: linear-gradient(318deg, rgb(233, 53, 55) 0%, rgb(239, 89, 99) 50%, rgb(240, 116, 136) 100%) !important;
+}
+.gradient.gray {
+  color: white;
+  background: linear-gradient(318deg, rgb(62, 67, 83) 0%, rgb(75, 80, 108) 50%, rgb(80, 87, 125) 100%) !important;
+}
+
+.ndmy-custom-card {
+  .ant-card-body {
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100%;
+    background: rgba(239, 246, 255, .3) !important;
+  }
+}

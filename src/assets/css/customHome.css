@@ -1,0 +1,391 @@
+.home-container {
+  width: 100%;
+  height: 100%;
+  /*margin-top: -64px;*/
+  overflow-y: scroll;
+  overflow-x: hidden;
+  background: #fff;
+  font-family: "PingFangRegular";
+  position: relative;
+}
+.home-swiper-container {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+.home-bannaer {
+  display: block; /* 确保是块级元素 */
+  visibility: visible; /* 强制显示 */
+  opacity: 1; /* 强制不透明 */
+  height: 100vh;
+  width: 100%;
+  object-fit: cover; /*保持宽高比并填满容器*/
+  position: absolute; /*绝对定位填充父容器*/
+  top: 0;
+  left: 0;
+}
+.swiper-paginations {
+  width: 20px;
+  height: auto;
+  position: absolute;
+  right: 40px;
+  top: 50%; /* 垂直居中 */
+  transform: translateY(-50%); /* 调整自身高度一半的偏移 */
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* 分页项之间的间距 */
+  align-items: center;
+  z-index: 8;
+}
+.swiper-pagination-item {
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.swiper-pagination-item.selected {
+  width: 30px;
+  height: 30px;
+}
+.swiper-item-action {
+  width: 35.42%;
+  height: 57px;
+  padding: 7px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  z-index: 100;
+  will-change: transform; /* 提示浏览器优化 */
+  backface-visibility: hidden; /* 防止重绘 */
+  transform-style: preserve-3d; /* 启用3D硬件加速 */
+}
+.swiper-item-action.mjsp {
+  width: 70.83%;
+  height: 56px;
+}
+.swiper-item-action-left {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  align-content: center;
+  gap: 8px;
+}
+.home-split-list {
+  width: 57.3%;
+  margin: 20px auto 0;
+  text-align: center;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+.home-split-item {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+}
+.home-split-item-inner.left-content {
+  width: 34.5%;
+  height: 100%;
+  text-align: right;
+  border-right: 1px solid #333333;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.home-split-item-inner.right-content {
+  flex: 1;
+  margin-left: 15px;
+  text-align: left;
+}
+.transform-video {
+  border-radius: 10px;
+  transition: none !important;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+.split-item-left {
+  text-align: left;
+}
+.split-item-left.flex {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+.split-item-right,
+.split-item-title {
+  height: 56px;
+  line-height: 56px;
+  font-size: 40px;
+  color: #333;
+}
+.split-item-text {
+  font-size: 16px;
+  font-family: "PingFangMedium";
+}
+.split-item-right {
+  margin-left: 20px;
+  padding-right: 5px;
+}
+.home-split-btn.fixWidth {
+  width: 302px;
+  display: flex !important;
+}
+.home-split-btn {
+  width: 94%;
+  height: 60px !important;
+  text-align: center;
+  line-height: 100%;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+}
+.home-split-btn:hover {
+  background: #fff !important;
+  border-color: #7d33ff;
+}
+.swiper-item-action-right {
+  width: 21.03%;
+  min-width: 142px;
+  height: 43px !important;
+  background: #7d33ff !important;
+  color: #fff;
+  font-size: 18px;
+  line-height: 43px;
+  border: none;
+  margin: 0;
+  &:hover {
+    color: #fff !important;
+    background: #7d33ff !important;
+  }
+}
+.title65 {
+  font-size: 65px;
+  line-height: 105px;
+}
+.title22 {
+  font-size: 22px;
+  line-height: 22px;
+}
+.manicure-info {
+  margin-top: 40px;
+  width: 100%;
+}
+.manicure-info-text {
+  width: 100%;
+  height: 22px;
+  font-size: 16px;
+  line-height: 22px;
+  padding-left: 300px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+.manicure-video-info {
+  width: 52.08%;
+  height: auto;
+  margin: 57px auto;
+  text-align: center;
+  color: #333;
+}
+.text56 {
+  font-size: 56px;
+  line-height: 78px;
+}
+.text18 {
+  font-size: 18px;
+  line-height: 26px;
+}
+.text20 {
+  font-size: 20px;
+  line-height: 28px;
+}
+.manicure-video-body {
+  width: 100%;
+  height: 560px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.manicure-video-item {
+  width: 50%;
+  height: 100%;
+  position: relative;
+}
+.marginAuto {
+  margin: 0 auto;
+}
+.material-tabs {
+  width: 1162px !important;
+  height: 622px !important;
+  margin: 60px auto;
+  :deep(.ant-tabs-nav)::before {
+    border: none !important;
+  }
+}
+.custom-home-tabs {
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: center;
+  align-items: center;
+  background: #fff !important;
+}
+.material-tabs-item {
+  color: #000 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid #fff !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+}
+.material-tabs-item[data-state="active"] {
+  border-bottom: 1px solid #4338ca !important; /* 紫蓝色下划线 */
+  color: #4338ca !important;
+}
+.custom-home-tabContent {
+  margin-top: 27px !important;
+}
+
+.creation-body {
+  width: 100%;
+  height: 786px;
+  padding-top: 132px;
+  overflow: hidden;
+  position: relative;
+  text-align: center;
+  background: #fefefe;
+}
+.creation-info.home {
+  display: flex;
+  flex-direction: column;
+}
+.creation-btn {
+  margin-top: 20px;
+}
+.creation-animation-body {
+  align-items: flex-end;
+  background-color: transparent;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: -156px;
+  overflow: hidden;
+  width: 100%;
+}
+.creation-animation-large-bottom {
+  margin-top: 12px;
+}
+.home-bottom {
+  width: 100vw;
+  height: 415px;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+.home-bottom-infos {
+  width: 100%;
+  height: 146px;
+  padding: 44px 0;
+  background-color: #f5f5f5;
+  text-align: center;
+}
+.home-bottom-icon {
+  width: 100%;
+  flex: 1;
+  padding: 67px 0;
+  background: #fff;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.home-bottom-info-item {
+  height: 18px;
+  font-size: 13px;
+  line-height: 18px;
+  color: #666;
+}
+.home-bottom-top {
+  line-height: 18px;
+  height: 18px;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+.home-info-split {
+  background-color: rgba(15, 17, 21, 0.2);
+  box-sizing: border-box;
+  display: inline-block;
+  height: 12px;
+  width: 1px;
+  margin: 0 10px;
+  position: relative;
+  top: 1px;
+}
+.home-bottom-icons {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  height: 24px;
+  margin-top: 18px;
+  gap: 8px;
+}
+/**首页灵感探索图片样式*/
+.creation-animation-large-top {
+  width: 202px;
+  height: 359px;
+}
+.creation-animation-large-bottom {
+  width: 202px;
+  height: 229px;
+}
+.creation-animation-middle {
+  width: 202px;
+  height: 429px;
+}
+.creation-animation-main {
+  width: 202px;
+  height: 359px;
+}
+.home-lgts-img {
+  background-size: contain; /* 完整显示图片，可能会有空白区域 */
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.custom-bg {
+  background: #7d33ff !important;
+  color: #fff;
+  &:hover {
+    color: #fff !important;
+    background: #7d33ff !important;
+  }
+}
+.footer-icon {
+  cursor: pointer;
+}
+
+/* 隐藏滚动条 - 适用于 WebKit 浏览器 */
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* 隐藏滚动条 - 适用于 Firefox */
+.scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}

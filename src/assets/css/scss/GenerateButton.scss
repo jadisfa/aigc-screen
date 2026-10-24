@@ -1,0 +1,21 @@
+.enable {
+  cursor: pointer;
+  background: #7d33ff;
+  color: #fff;
+  &:hover {
+    background: #7d33ff;
+    color: #fff;
+  }
+}
+.generate-btn:hover {
+  background: #7d33ff !important;
+}
+.generate-btn.disabled:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+.disabled {
+  color: #000;
+}
+.anticon-thunderbolt {
+  line-height: 22px;
+}

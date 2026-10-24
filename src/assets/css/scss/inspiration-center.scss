@@ -1,0 +1,112 @@
+// inspiration-center.scss
+.inspiration-body {
+  margin-top: 40px;
+  text-align: center;
+  width: 80.98%;
+}
+
+.inspiration-btn-list {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.inspiration-btn {
+  height: 36px;
+  border-radius: 18px;
+  border: 1px solid #d9d9d9;
+  padding: 0 20px;
+  font-family: "PingFangMedium", sans-serif;
+  font-size: 14px;
+  color: #666;
+  line-height: 34px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: #d9d9d9;
+    color: #666;
+  }
+
+  &.inspiration-btn-checked {
+    color: #333;
+    border-color: #d9d9d9;
+  }
+}
+
+.inspiration-img {
+  width: 191px;
+  height: 256px;
+  border-radius: 10px;
+  cursor: pointer;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.02);
+  }
+}
+
+.inspiration-center-swiper {
+  height: 256px;
+  margin-top: 36px;
+  width: 100%;
+
+  // 隐藏默认按钮
+  :global {
+    .swiper-button-prev,
+    .swiper-button-next {
+      display: none;
+    }
+
+    .swiper-wrapper {
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 20px;
+    }
+
+    .swiper-slide {
+      width: 191px !important;
+      flex-shrink: 0;
+    }
+  }
+}
+
+.custom-btn-swiper {
+  width: 33px;
+  height: 33px;
+  background: #e9e9e9;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #666;
+  font-size: 14px;
+
+  &:hover {
+    background: #d9d9d9;
+    color: #333;
+  }
+}
+
+// 导航按钮位置
+.swiper-button-prev-custom,
+.swiper-button-next-custom {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+}
+
+.swiper-button-prev-custom {
+  left: -60px;
+}
+
+.swiper-button-next-custom {
+  right: -60px;
+}

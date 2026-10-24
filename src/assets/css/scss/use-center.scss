@@ -1,0 +1,175 @@
+// user-center.scss
+.user-center-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+
+  .user-center-header {
+    width: 100%;
+    min-height: 192px;
+    background: #fff;
+    padding: 54.5px 40px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .user-center-left {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+  }
+
+  .avatar-container {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    .ant-avatar {
+      width: 83px !important;
+      height: 83px !important;
+    }
+
+    .avatar-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 0.3s ease;
+    }
+  }
+
+  .user-center-info {
+    margin-left: 14px;
+    padding: 7.5px 0;
+    height: 83px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .user-name {
+    font-family: "PingFangMedium", sans-serif;
+    font-size: 24px !important;
+    line-height: 32px;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .user-info-bottom {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .user-balance {
+    height: 24px;
+    padding: 0 6px;
+    background: #ffbe33;
+    color: #fff;
+    font-family: "PingFangMedium", sans-serif;
+    font-size: 14px;
+    line-height: 24px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .user-center-card {
+    margin-top: 28px;
+    border-radius: 12px;
+    flex: 1;
+
+    .ant-tabs {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      .ant-tabs-tab {
+        height: 24px;
+        font-family: "PingFangMedium", sans-serif;
+        font-size: 14px;
+        line-height: 24px;
+        padding: 0 16px;
+        &:hover {
+          color: #7d33ff !important;
+        }
+      }
+
+      .ant-tabs-tab-active {
+        color: #7d33ff !important;
+
+        .ant-tabs-tab-btn {
+          color: #7d33ff !important;
+        }
+      }
+
+      .ant-tabs-ink-bar {
+        background: #7d33ff !important;
+      }
+      .ant-tabs-body-holder {
+        flex: 1;
+        overflow-y: auto;
+      }
+    }
+
+    .ant-card-body {
+      background: #fff;
+      padding: 24px;
+      height: 100% !important;
+    }
+
+    .tab-content {
+      min-height: 200px;
+    }
+  }
+
+  // 表格样式
+  .charge-record-table {
+    width: 100%;
+
+    .text-xs {
+      font-size: 12px;
+    }
+
+    .text-nowrap {
+      white-space: nowrap;
+    }
+  }
+}
+
+// 响应式适配
+@media (max-width: 768px) {
+  .user-center-container {
+    padding: 0 12px;
+
+    .user-center-header {
+      padding: 20px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .user-center-info {
+      height: auto;
+    }
+
+    .user-info-bottom {
+      flex-wrap: wrap;
+    }
+  }
+}

@@ -1,0 +1,582 @@
+/* ============================================
+   1. 基础布局
+   ============================================ */
+.creation-container {
+  width: 100%;
+  min-height: calc(100vh - 32px);
+  height: auto !important;
+  background: #f8f8f8;
+  font-family: "PingFangRegular", sans-serif;
+}
+
+.creation-content.noData {
+  padding-top: 78px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.main-header {
+  text-align: center;
+}
+
+.creation-logo {
+  width: 183px;
+  height: 44px;
+  margin: 0 auto;
+}
+
+.creation-info {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.creation-cion {
+  width: 58px;
+  height: 13px;
+}
+
+.text20 {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+/* ============================================
+   2. Tabs 样式 - 模拟 Ant Design 卡片效果
+   ============================================ */
+.creation-tabs {
+  width: auto;
+  min-width: 766px;
+  margin-top: 40px;
+}
+
+/* Tabs 头部容器 - 模拟 ant-tabs-nav */
+.creation-tabs .tabs-header,
+.drawRecord-tabs .tabs-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0;
+  margin: 0;
+}
+
+/* Tabs 列表 - 模拟 ant-tabs-tab 容器 */
+.creation-tabs .tabs-list,
+.drawRecord-tabs .tabs-list {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 单个 Tab - 模拟 ant-tabs-tab */
+.creation-tabs .tabs-tab,
+.drawRecord-tabs .tabs-tab {
+  position: relative;
+  width: 148px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e9e9e9;
+  border: none;
+  border-radius: 0;
+  font-family: "PingFangRegular", sans-serif;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  transition: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-smooth: never;
+  user-select: none;
+  outline: none;
+  box-shadow: none;
+}
+
+/* 第一个 Tab - 左上圆角 */
+.creation-tabs .tabs-tab:first-child,
+.drawRecord-tabs .tabs-tab:first-child {
+  border-top-left-radius: 10px;
+}
+
+/* 最后一个 Tab - 右上圆角（最后一个 Tab 是 "视频创作"） */
+.creation-tabs .tabs-tab:last-child,
+.drawRecord-tabs .tabs-tab:last-child {
+  border-top-right-radius: 10px;
+}
+
+/* ============================================
+   3. Tab 激活状态 - 使用 SVG 背景图
+   ============================================ */
+
+/* 激活状态通用 */
+.creation-tabs .tabs-tab.active,
+.drawRecord-tabs .tabs-tab.active {
+  color: #7d33ff;
+  z-index: 1;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  outline: none;
+  box-shadow: none;
+}
+
+/* 第一个 Tab 激活 - 左侧弧形背景 */
+.creation-tabs .tabs-tab:first-child.active,
+.drawRecord-tabs .tabs-tab:first-child.active {
+  background-image: url("/src/assets/svg/tab.svg");
+}
+
+/* 中间 Tab 激活 - 平底弧形背景 */
+.creation-tabs .tabs-tab:not(:first-child):not(:last-child).active,
+.drawRecord-tabs .tabs-tab:not(:first-child):not(:last-child).active {
+  background-image: url("/src/assets/svg/tab_1.svg");
+}
+
+/* 最后一个 Tab 激活 - 右侧弧形背景 */
+.creation-tabs .tabs-tab:last-child.active,
+.drawRecord-tabs .tabs-tab:last-child.active {
+  background-image: url("/src/assets/svg/tab_2.svg");
+}
+
+/* ============================================
+   4. Tab 内容区域
+   ============================================ */
+.creation-tabs .tabs-content,
+.drawRecord-tabs .tabs-content {
+  background: #fff;
+  border-radius: 0 0 10px 10px;
+  padding: 27px 42px 20px;
+  min-height: 239px;
+}
+.tabs-content-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ============================================
+   5. 上传组件样式
+   ============================================ */
+.creation-upload {
+  height: 120px;
+}
+
+.socialnedia-upload {
+  width: 100px;
+  height: 120px;
+  overflow: hidden;
+}
+
+.NailTrialWear-upload {
+  width: 100px;
+  height: 120px;
+  overflow: hidden;
+}
+
+/* ============================================
+   6. Tabs Footer (底部操作栏)
+   ============================================ */
+.tabs-footer {
+  margin-top: 38px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  height: 36px;
+}
+
+.tabs-footer-left {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0;
+}
+
+.creation-select {
+  min-width: 123px !important;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  box-sizing: border-box;
+  padding: 0 11px;
+  border-radius: 8px;
+}
+
+.creation-select + .creation-select {
+  margin-left: 18px;
+}
+
+/* ============================================
+   7. 参数选择 Popover 样式
+   ============================================ */
+.params-body {
+  width: 400px;
+  height: auto;
+  font-family: "PingFangMedium", sans-serif;
+}
+
+.params-title {
+  font-size: 14px;
+  line-height: 19px;
+  color: #333;
+}
+
+.params-title.proport {
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.params-style-list {
+  width: 100%;
+  height: 28px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  font-size: 12px;
+  gap: 8px;
+}
+
+.params-style-list.modal {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  min-height: 100%;
+  align-content: start;
+  height: 252px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
+.params-style-item {
+  padding: 0 10px;
+  height: 28px;
+  line-height: 26px;
+  border: 1px solid #999;
+  background: #e9e9e9;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+  transition: all 0.2s ease;
+}
+
+.params-style-item.modal-img {
+  width: 90px;
+  height: 121px;
+  border-radius: 10px;
+  background: none;
+  padding: 0;
+  border: 2px solid transparent;
+  overflow: hidden;
+}
+
+.params-style-item.modal-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.params-select {
+  border: 1px solid #7d33ff !important;
+  color: #7d33ff !important;
+  background: #fff !important;
+}
+
+.params-style-item.modal-img.params-select {
+  border: 2px solid #7d33ff !important;
+}
+
+.params-nums {
+  margin: 14px auto;
+}
+
+.params-btn {
+  width: auto;
+  height: 36px;
+  padding: 0 14px;
+  margin: 0 18px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "PingFangMedium", sans-serif;
+  font-size: 14px;
+  color: #333;
+  transition: all 0.2s ease;
+}
+
+.params-btn:hover {
+  border-color: #7d33ff;
+}
+
+.params-btn.no-margin {
+  margin: 0;
+}
+
+.params-btn.margin-left {
+  margin-left: 18px;
+}
+
+.params-btn.time {
+  width: 80px;
+  min-width: 80px;
+}
+
+.btn-params-default {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  font-family: "PingFangMedium", sans-serif;
+  font-size: 14px;
+}
+
+.btn-params-data {
+  width: 100%;
+}
+
+/* ============================================
+   8. 比例数量 Popover
+   ============================================ */
+.proportional-quantity-body {
+  min-width: 200px;
+}
+
+.proportional-quantity,
+.img-proport,
+.img-quantity {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.proport-quantity-driver {
+  width: 1px;
+  height: 14.5px;
+  background: #333;
+}
+
+.proportional-quantity-number {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.proportional-quantity-number.time {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.proportional-list {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 15px;
+  margin-top: 8px;
+}
+
+.proportional-item-data {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.proportional-item-data.select .proportional-item-body {
+  border: 1px solid #7d33ff !important;
+}
+
+.proportional-item-data.select .params-title {
+  color: #7d33ff !important;
+}
+
+.proport-body {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.proportional-item-body {
+  border: 1px solid #666;
+  border-radius: 2px;
+}
+
+/* ============================================
+   9. 自定义占位符
+   ============================================ */
+.custom-placeholder {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  font-size: 14px;
+  height: 34px;
+  gap: 4px;
+}
+
+/* ============================================
+   10. 文本输入框
+   ============================================ */
+.custom-text {
+  margin-left: 10px;
+  border: 1px solid #e9e9e9;
+  border-radius: 8px;
+  padding: 6px;
+  flex: 1;
+  resize: none;
+  outline: none;
+  font-family: "PingFangRegular", sans-serif;
+  font-size: 14px;
+  min-height: 80px;
+}
+
+.custom-text:focus {
+  border-color: #7d33ff;
+  box-shadow: 0 0 0 2px rgba(125, 51, 255, 0.1);
+}
+
+.custom-text[disabled] {
+  background: #f9f9f9;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   11. 视频创作
+   ============================================ */
+.videoCreation-header {
+  width: 100%;
+  height: 120px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-items: center;
+  gap: 4px;
+}
+
+.videoCreation-left {
+  width: 232px;
+  height: 120px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-items: center;
+  gap: 4px;
+}
+
+.video-creation {
+  height: 120px;
+  &:focus {
+    border-color: #e9e9e9 !important;
+  }
+}
+
+/* ============================================
+   12. 美甲试戴
+   ============================================ */
+.NailTrialWear-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 18px;
+}
+
+/* ============================================
+   13. 社媒爆款
+   ============================================ */
+.socialNedia-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ============================================
+   14. Right Extra
+   ============================================ */
+.right-extra-body,
+.right-extra-left {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  line-height: 45px;
+  align-items: center;
+}
+
+.right-extra-left {
+  margin-right: 20px;
+  gap: 8px;
+}
+
+/* ============================================
+   15. 响应式
+   ============================================ */
+@media (max-width: 1024px) {
+  .creation-tabs {
+    width: 80%;
+    min-width: auto;
+  }
+
+  .creation-tabs .tabs-tab {
+    width: 100px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .creation-content.noData {
+    padding-top: 60px;
+  }
+
+  .creation-tabs {
+    width: 95%;
+    min-width: auto;
+  }
+
+  .creation-tabs .tabs-tab {
+    width: 80px;
+    font-size: 12px;
+    height: 38px;
+  }
+
+  .tabs-footer {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .tabs-footer-left {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .params-body {
+    width: 280px;
+  }
+}

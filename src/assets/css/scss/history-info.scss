@@ -1,0 +1,256 @@
+// HistoryInfo.scss
+.custom-history-dropdown {
+  font-family: "PingFangMedium";
+  line-height: 32px;
+  display: inline-block;
+}
+
+.custom-history {
+  width: 386px;
+  height: 658px;
+  overflow: hidden;
+}
+
+.custom-history-popover {
+  z-index: 99999;
+
+  .ant-popover-inner {
+    border-radius: 12px;
+    overflow: hidden;
+  }
+}
+
+.custom-popover-title {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+
+  .popover-title-icon {
+    font-size: 19px;
+    cursor: pointer;
+    color: #666;
+    transition: color 0.3s;
+
+    &:hover {
+      color: #7d33ff;
+    }
+  }
+}
+
+.custom-tabs {
+  margin-top: 10px;
+
+  .ant-tabs-nav {
+    margin-bottom: 12px;
+    z-index: 10;
+
+    .ant-tabs-tab {
+      font-family: "PingFangMedium" !important;
+      font-size: 14px !important;
+      height: 32px;
+      padding: 0 12px;
+      &:hover {
+        color: #7d33ff !important;
+      }
+      &.ant-tabs-tab-active {
+        .ant-tabs-tab-btn {
+          color: #7d33ff !important;
+        }
+      }
+    }
+
+    .ant-tabs-ink-bar {
+      background: #7d33ff !important;
+    }
+  }
+
+  .ant-tabs-content-holder {
+    overflow: hidden;
+  }
+}
+
+.user-draw-history-info {
+  margin: 10px 0;
+  height: 570px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.user-draw-item {
+  margin-bottom: 18px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.draw-info {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  color: #666;
+  font-size: 14px;
+  line-height: 18px;
+  padding: 0 4px;
+
+  .anticon-delete {
+    color: #999;
+    transition: color 0.3s;
+
+    &:hover {
+      color: #ff4d4f;
+    }
+  }
+}
+
+.draw-img-list {
+  width: 100%;
+  height: 238px;
+  margin-top: 10px;
+  overflow-y: hidden;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: row;
+  gap: 18px;
+  padding-bottom: 4px;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.draw-img-item {
+  width: 184px;
+  min-width: 184px;
+  flex-shrink: 0;
+  height: 238px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.draw-img {
+  width: 184px;
+  height: 238px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.draw-video-item {
+  width: 100%;
+  height: 238px;
+  margin-top: 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+
+.metrial-tab {
+  margin: 18px 0;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  overflow-x: auto;
+
+  &::-webkit-scrollbar {
+    height: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+}
+
+.metrial-item {
+  font-size: 12px;
+  line-height: 18px;
+  color: #666;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.3s;
+
+  &:hover {
+    color: #7d33ff;
+    background: rgba(125, 51, 255, 0.05);
+  }
+
+  &.actived {
+    color: #7d33ff;
+    background: rgba(125, 51, 255, 0.1);
+  }
+}
+
+.metrial-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 2px;
+  max-height: 500px;
+  // height: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
+  z-index: 1;
+
+  &::-webkit-scrollbar {
+    width: 2px !important;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.workflow-item.material {
+  background-color: #fafafa;
+  border-radius: 10px;
+  width: 100%;
+  aspect-ratio: 184 / 238;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+
+  &:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(125, 51, 255, 0.15);
+    cursor: pointer;
+  }
+}
+
+.workflow-img.material {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

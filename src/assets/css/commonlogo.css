@@ -1,0 +1,23 @@
+.logo-image {
+  width: 136.5px;
+  height: 30px;
+  cursor: pointer;
+  display: flex; /* 启用弹性布局 */
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
+  background-size: contain; /* 保持图片完整显示 */
+  background-repeat: no-repeat; /* 防止背景重复 */
+  background-position: center; /* 图片居中显示 */
+}
+.logo-image.creation-img {
+  width: 183px;
+  height: 44px;
+  margin: 0 auto;
+}
+.logo-image.custom-home-img {
+  width: 149px;
+  height: 55px;
+}
+.logo-image.custom-img {
+  background-position: left !important;
+}
